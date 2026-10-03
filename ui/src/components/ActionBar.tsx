@@ -4,7 +4,6 @@ import {
   LuExternalLink,
   LuHardDrive,
   LuMaximize,
-  LuMonitor,
   LuScanText,
   LuSettings,
   LuSignal,
@@ -30,7 +29,7 @@ import Container from "@components/Container";
 import PasteModal from "@components/popovers/PasteModal";
 import WakeOnLanModal from "@components/popovers/WakeOnLan/Index";
 import MountPopopover from "@components/popovers/MountPopover";
-import ResolutionPopover from "@components/popovers/ResolutionPopover";
+import ResolutionButton from "@components/ResolutionButton";
 import { JsonRpcResponse, useJsonRpc } from "@hooks/useJsonRpc";
 import { m } from "@localizations/messages.js";
 
@@ -237,36 +236,7 @@ export default function Actionbar({
             </Popover>
           </div>
           <div>
-            <Popover>
-              <PopoverButton as={Fragment}>
-                <Button
-                  size="XS"
-                  theme="light"
-                  text={m.action_bar_resolution()}
-                  LeadingIcon={LuMonitor}
-                  onClick={() => {
-                    setDisableVideoFocusTrap(true);
-                  }}
-                />
-              </PopoverButton>
-              <PopoverPanel
-                anchor="bottom start"
-                transition
-                className={cx(
-                  "z-10 flex w-[420px] origin-top flex-col overflow-visible!",
-                  "flex origin-top flex-col transition duration-300 ease-out data-closed:translate-y-8 data-closed:opacity-0",
-                )}
-              >
-                {({ open }) => {
-                  checkIfStateChanged(open);
-                  return (
-                    <div className="mx-auto w-full max-w-xl">
-                      <ResolutionPopover />
-                    </div>
-                  );
-                }}
-              </PopoverPanel>
-            </Popover>
+            <ResolutionButton />
           </div>
           <div className="hidden lg:block">
             <Button
