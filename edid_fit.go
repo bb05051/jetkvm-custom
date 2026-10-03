@@ -41,7 +41,12 @@ func rpcSetFitEDID(width int, height int) (fitEDIDResult, error) {
 	if err != nil {
 		return fitEDIDResult{}, err
 	}
-	if err := rpcSetEDID(strings.ToUpper(hex.EncodeToString(edid))); err != nil {
+	encoded := strings.ToUpper(hex.EncodeToString(edid))
+	// Same mode as already set: leave the host alone (no hotplug, no flicker).
+	if strings.EqualFold(encoded, config.EdidString) {
+		return fitEDIDResult{Width: t.Width(), Height: t.Height()}, nil
+	}
+	if err := rpcSetEDID(encoded); err != nil {
 		return fitEDIDResult{}, err
 	}
 	return fitEDIDResult{Width: t.Width(), Height: t.Height()}, nil

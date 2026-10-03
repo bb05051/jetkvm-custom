@@ -33,8 +33,14 @@ function fittedSize(edid: string): { width: number; height: number } | null {
 // Auto fit: how often to look at the video area, and how far its aspect
 // ratio may drift from the last fit before re-fitting. Aligning the mode to
 // multiples of 16 alone can change the ratio by up to ~1.8%.
+// The check only compares ratios in the browser: nothing is sent to the
+// device unless the ratio moved. Fullscreen is checked the same way, since
+// rotating the client changes its area too.
 const AUTO_FIT_INTERVAL_MS = 10_000;
 const AUTO_FIT_TOLERANCE = 0.03;
+// Delay before the first check after auto fit turns on or fullscreen
+// changes, so the layout has settled.
+const AUTO_FIT_SETTLE_MS = 1_000;
 
 // Matches the caret half of SplitButton (which only offers a Menu caret).
 const caretClass = cx(
@@ -56,12 +62,21 @@ export default function ResolutionButton({
 }) {
   const { send } = useJsonRpc();
   const { navigateTo } = useDeviceUiNavigation();
-  const { autoFitResolution, setAutoFitResolution } = useSettingsStore();
+  const {
+    autoFitResolution,
+    setAutoFitResolution,
+    autoFitResolutionFullscreen,
+    setAutoFitResolutionFullscreen,
+  } = useSettingsStore();
   const { setDisableVideoFocusTrap } = useUiStore();
 
   const [presets, setPresets] = useState<EDIDPreset[]>([]);
-  // Lowercased EDID currently set on the device
+  // Lowercased EDID currently set on the device (raw value kept for restoring)
   const [currentEdid, setCurrentEdid] = useState<string | null>(null);
+  const rawEdid = useRef<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(() => !!document.fullscreenElement);
+  // EDID to restore when leaving fullscreen if only fullscreen auto fit is on
+  const edidBeforeFullscreen = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   // Aspect ratio of the area the current fit was made for
@@ -74,6 +89,7 @@ export default function ResolutionButton({
     });
     void send("getEDID", {}, (resp: JsonRpcResponse) => {
       if ("error" in resp) return;
+      rawEdid.current = resp.result as string;
       setCurrentEdid((resp.result as string).toLowerCase());
     });
   }, [send]);
@@ -136,7 +152,42 @@ export default function ResolutionButton({
   }, [fitted]);
 
   useEffect(() => {
-    if (!autoFitResolution || !edidKnown) return;
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // Fullscreen-only auto fit: remember the EDID on the way in, put it back on
+  // the way out so the windowed resolution is not left changed.
+  useEffect(() => {
+    const settings = useSettingsStore.getState();
+    if (isFullscreen) {
+      if (settings.autoFitResolutionFullscreen && !settings.autoFitResolution) {
+        edidBeforeFullscreen.current = rawEdid.current;
+      }
+      return;
+    }
+    const saved = edidBeforeFullscreen.current;
+    edidBeforeFullscreen.current = null;
+    if (!saved || settings.autoFitResolution) return;
+    if (saved.toLowerCase() === rawEdid.current?.toLowerCase()) return;
+    void send("setEDID", { edid: saved }, (resp: JsonRpcResponse) => {
+      if ("error" in resp) {
+        notifications.error(
+          m.video_failed_set_edid({ error: resp.error.data || m.unknown_error() }),
+        );
+        return;
+      }
+      lastFitRatio.current = null;
+      notifications.success(m.resolution_restored());
+      refresh();
+    });
+  }, [isFullscreen, send, refresh]);
+
+  const autoFitActive = isFullscreen ? autoFitResolutionFullscreen : autoFitResolution;
+
+  useEffect(() => {
+    if (!autoFitActive || !edidKnown) return;
     const check = () => {
       if (document.hidden || busyRef.current) return;
       const { clientWidth, clientHeight } = useVideoStore.getState();
@@ -145,10 +196,13 @@ export default function ResolutionButton({
       if (last && Math.abs(clientWidth / clientHeight / last - 1) < AUTO_FIT_TOLERANCE) return;
       fitToWindow();
     };
-    check();
+    const first = window.setTimeout(check, AUTO_FIT_SETTLE_MS);
     const id = window.setInterval(check, AUTO_FIT_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [autoFitResolution, edidKnown, fitToWindow]);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [autoFitActive, isFullscreen, edidKnown, fitToWindow]);
 
   return (
     <Popover>
@@ -197,6 +251,12 @@ export default function ResolutionButton({
                       onClick={fitToWindow}
                     />
                   </div>
+                  <CheckboxWithLabel
+                    label={m.resolution_auto_fit_fullscreen()}
+                    description={m.resolution_auto_fit_fullscreen_description()}
+                    checked={autoFitResolutionFullscreen}
+                    onChange={e => setAutoFitResolutionFullscreen(e.target.checked)}
+                  />
                   <Card className="animate-fadeIn opacity-0">
                     <div className="w-full divide-y divide-slate-700/30 dark:divide-slate-600/30">
                       {presets.map(preset => {

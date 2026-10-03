@@ -375,6 +375,9 @@ export interface SettingsState {
   // Custom firmware: re-fit the resolution when the video area's aspect ratio changes
   autoFitResolution: boolean;
   setAutoFitResolution: (enabled: boolean) => void;
+  // Same, but applied while the video is in fullscreen
+  autoFitResolutionFullscreen: boolean;
+  setAutoFitResolutionFullscreen: (enabled: boolean) => void;
 
   mouseMode: string;
   setMouseMode: (mode: string) => void;
@@ -432,6 +435,9 @@ export const useSettingsStore = create(
 
       autoFitResolution: false,
       setAutoFitResolution: (enabled: boolean) => set({ autoFitResolution: enabled }),
+      autoFitResolutionFullscreen: false,
+      setAutoFitResolutionFullscreen: (enabled: boolean) =>
+        set({ autoFitResolutionFullscreen: enabled }),
 
       mouseMode: "absolute",
       setMouseMode: (mode: string) => set({ mouseMode: mode }),
