@@ -15,7 +15,7 @@ import (
 // CVT standard blanking and stays within what the bridge and the template's
 // range limits accept.
 const (
-	TargetPixels     = 1792 * 896 // about the size of the template's mode
+	TargetPixels     = 1600 * 900 // only the aspect ratio follows the window
 	MaxWidth         = 1920
 	MaxHeight        = 1200
 	MinWidth         = 640
