@@ -1091,6 +1091,8 @@ func rpcSetUsbDeviceState(device string, enabled bool) error {
 		config.UsbDevices.MassStorage = enabled
 	case "serialConsole":
 		config.UsbDevices.SerialConsole = enabled
+	case "touchscreen":
+		config.UsbDevices.Touchscreen = enabled
 	case "audio":
 		config.UsbDevices.Audio = enabled
 		if !enabled {

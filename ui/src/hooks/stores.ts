@@ -82,6 +82,9 @@ export interface UIState {
   usbSerialConsoleEnabled: boolean;
   setUsbSerialConsoleEnabled: (enabled: boolean) => void;
 
+  usbTouchscreenEnabled: boolean;
+  setUsbTouchscreenEnabled: (enabled: boolean) => void;
+
   isEmbedMode: boolean;
   setEmbedMode: (enabled: boolean) => void;
 }
@@ -120,6 +123,9 @@ export const useUiStore = create<UIState>(set => ({
 
   usbSerialConsoleEnabled: false,
   setUsbSerialConsoleEnabled: (enabled: boolean) => set({ usbSerialConsoleEnabled: enabled }),
+
+  usbTouchscreenEnabled: false,
+  setUsbTouchscreenEnabled: (enabled: boolean) => set({ usbTouchscreenEnabled: enabled }),
 
   isEmbedMode: false,
   setEmbedMode: (enabled: boolean) => set({ isEmbedMode: enabled }),

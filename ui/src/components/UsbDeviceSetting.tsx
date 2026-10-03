@@ -27,6 +27,7 @@ export interface UsbDeviceConfig {
   mass_storage: boolean;
   serial_console: boolean;
   audio: boolean;
+  touchscreen: boolean;
 }
 
 const defaultUsbDeviceConfig: UsbDeviceConfig = {
@@ -36,6 +37,7 @@ const defaultUsbDeviceConfig: UsbDeviceConfig = {
   mass_storage: true,
   serial_console: false,
   audio: true,
+  touchscreen: false,
 };
 
 const usbPresets = [
@@ -49,6 +51,7 @@ const usbPresets = [
       mass_storage: true,
       serial_console: false,
       audio: true,
+      touchscreen: false,
     },
   },
   {
@@ -61,6 +64,7 @@ const usbPresets = [
       mass_storage: false,
       serial_console: false,
       audio: false,
+      touchscreen: false,
     },
   },
   {
@@ -73,7 +77,7 @@ export function UsbDeviceSetting() {
   const usbSerial = useCapability("usb_serial");
   const { send } = useJsonRpc();
   const [loading, setLoading] = useState(false);
-  const { setUsbSerialConsoleEnabled } = useUiStore();
+  const { setUsbSerialConsoleEnabled, setUsbTouchscreenEnabled } = useUiStore();
 
   const [usbDeviceConfig, setUsbDeviceConfig] = useState<UsbDeviceConfig>(defaultUsbDeviceConfig);
   const [selectedPreset, setSelectedPreset] = useState<string>("default");
@@ -92,6 +96,7 @@ export function UsbDeviceSetting() {
         };
         setUsbDeviceConfig(usbConfigState);
         setUsbSerialConsoleEnabled(usbConfigState.serial_console);
+        setUsbTouchscreenEnabled(usbConfigState.touchscreen);
 
         // Set the appropriate preset based on current config
         const matchingPreset = usbPresets.find(
@@ -108,7 +113,7 @@ export function UsbDeviceSetting() {
         setSelectedPreset(matchingPreset ? matchingPreset.value : "custom");
       }
     });
-  }, [send, setUsbSerialConsoleEnabled]);
+  }, [send, setUsbSerialConsoleEnabled, setUsbTouchscreenEnabled]);
 
   const handleUsbConfigChange = useCallback(
     (devices: UsbDeviceConfig) => {
@@ -220,6 +225,17 @@ export function UsbDeviceSetting() {
                 <Checkbox
                   checked={usbDeviceConfig.relative_mouse}
                   onChange={onUsbConfigItemChange("relative_mouse")}
+                />
+              </SettingsItem>
+            </div>
+            <div className="space-y-4">
+              <SettingsItem
+                title={m.usb_device_enable_touchscreen_title()}
+                description={m.usb_device_enable_touchscreen_description()}
+              >
+                <Checkbox
+                  checked={usbDeviceConfig.touchscreen}
+                  onChange={onUsbConfigItemChange("touchscreen")}
                 />
               </SettingsItem>
             </div>

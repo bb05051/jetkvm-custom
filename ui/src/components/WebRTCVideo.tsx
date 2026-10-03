@@ -5,6 +5,7 @@ import { cx } from "@/cva.config";
 import { isWindows } from "@/utils";
 import useKeyboard from "@hooks/useKeyboard";
 import useMouse from "@hooks/useMouse";
+import useTouch from "@hooks/useTouch";
 import { useDevicePixelRatio } from "@hooks/useDevicePixelRatio";
 import {
   useCapability,
@@ -66,6 +67,12 @@ export default function WebRTCVideo({
     getMouseWheelHandler,
     resetMousePosition,
   } = useMouse();
+  const {
+    onPointerDown: touchPointerDown,
+    onPointerMove: touchPointerMove,
+    onPointerEnd: touchPointerEnd,
+    isRecentTouch,
+  } = useTouch();
   const {
     setClientSize: setVideoClientSize,
     setSize: setVideoSize,
@@ -591,7 +598,13 @@ export default function WebRTCVideo({
       if (!videoElmRefValue) return;
 
       const isRelativeMouseMode = settings.mouseMode === "relative";
-      const mouseHandler = isRelativeMouseMode ? relMouseMoveHandler : absMouseMoveHandler;
+      const baseMouseHandler = isRelativeMouseMode ? relMouseMoveHandler : absMouseMoveHandler;
+      // Touch input is handled by useTouch; skip touch pointers and the
+      // compatibility mouse events browsers synthesize after a tap.
+      const mouseHandler = (e: MouseEvent) => {
+        if ((e as PointerEvent).pointerType === "touch" || isRecentTouch()) return;
+        baseMouseHandler(e);
+      };
 
       const abortController = new AbortController();
       const signal = abortController.signal;
@@ -604,10 +617,16 @@ export default function WebRTCVideo({
         passive: true,
       });
 
+      videoElmRefValue.addEventListener("pointerdown", touchPointerDown, { signal });
+      videoElmRefValue.addEventListener("pointermove", touchPointerMove, { signal });
+      videoElmRefValue.addEventListener("pointerup", touchPointerEnd, { signal });
+      videoElmRefValue.addEventListener("pointercancel", touchPointerEnd, { signal });
+
       if (isRelativeMouseMode) {
         videoElmRefValue.addEventListener(
           "click",
           () => {
+            if (isRecentTouch()) return;
             if (isPointerLockPossible && !isPointerLockActive && !document.pointerLockElement) {
               requestPointerLock();
             }
@@ -645,6 +664,10 @@ export default function WebRTCVideo({
       mouseWheelHandler,
       resetMousePosition,
       settings.mouseMode,
+      touchPointerDown,
+      touchPointerMove,
+      touchPointerEnd,
+      isRecentTouch,
     ],
   );
 
@@ -741,17 +764,22 @@ export default function WebRTCVideo({
                         disablePictureInPicture
                         controlsList="nofullscreen"
                         style={videoStyle}
-                        className={cx("h-full w-full object-contain transition-all duration-1000", {
-                          "cursor-none": settings.isCursorHidden,
-                          "pointer-events-none": isOcrMode,
-                          "opacity-0!":
-                            isVideoLoading ||
-                            hdmiError ||
-                            hasConnectionIssues ||
-                            peerConnectionState !== "connected",
-                          "opacity-60!": showPointerLockBar,
-                          "animate-slideUpFade": isPlaying,
-                        })}
+                        className={cx(
+                          "h-full w-full object-contain transition-all duration-1000",
+                          // Let useTouch own touch gestures instead of the browser (scroll/zoom/callout)
+                          "touch-none select-none [-webkit-touch-callout:none]",
+                          {
+                            "cursor-none": settings.isCursorHidden,
+                            "pointer-events-none": isOcrMode,
+                            "opacity-0!":
+                              isVideoLoading ||
+                              hdmiError ||
+                              hasConnectionIssues ||
+                              peerConnectionState !== "connected",
+                            "opacity-60!": showPointerLockBar,
+                            "animate-slideUpFade": isPlaying,
+                          },
+                        )}
                       />
                       {audioEnabled && <audio ref={audioElm} autoPlay playsInline hidden />}
                       <OcrOverlay />

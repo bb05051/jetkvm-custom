@@ -23,6 +23,7 @@ type Devices struct {
 	MassStorage   bool `json:"mass_storage"`
 	SerialConsole bool `json:"serial_console"`
 	Audio         bool `json:"audio"`
+	Touchscreen   bool `json:"touchscreen"`
 }
 
 // Config is a struct that represents the customizations for a USB gadget.
@@ -81,6 +82,8 @@ type UsbGadget struct {
 	absMousePressed bool
 	relMouseHidFile *os.File
 	relMouseLock    sync.Mutex
+
+	touchFFS *ffsTouchscreen
 
 	keyboardState byte          // keyboard latched state (NumLock, CapsLock, ScrollLock, Compose, Kana)
 	keysDownState KeysDownState // keyboard dynamic state (modifier keys and pressed keys)

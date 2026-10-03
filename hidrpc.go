@@ -54,6 +54,13 @@ func handleHidRPCMessage(message hidrpc.Message, session *Session) {
 			return
 		}
 		rpcErr = rpcRelMouseReport(mouseReport.DX, mouseReport.DY, mouseReport.Button)
+	case hidrpc.TypeTouchscreenReport:
+		touchscreenReport, err := message.TouchscreenReport()
+		if err != nil {
+			logger.Warn().Err(err).Msg("failed to get touchscreen report")
+			return
+		}
+		rpcErr = rpcTouchscreenReport(touchscreenReport.Contacts)
 	default:
 		logger.Warn().Uint8("type", uint8(message.Type())).Msg("unknown HID RPC message type")
 	}

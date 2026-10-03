@@ -96,6 +96,10 @@ func rpcRelMouseReport(dx int8, dy int8, buttons uint8) error {
 	return rpcHidReport(func() error { return gadget.RelMouseReport(dx, dy, buttons) })
 }
 
+func rpcTouchscreenReport(contacts []usbgadget.TouchContact) error {
+	return rpcHidReport(func() error { return gadget.TouchscreenReport(contacts) })
+}
+
 func rpcWheelReport(wheelY int8, wheelX int8) error {
 	return rpcHidReport(func() error {
 		if gadget.HasAbsoluteMouse() {

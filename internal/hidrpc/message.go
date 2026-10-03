@@ -3,6 +3,8 @@ package hidrpc
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/jetkvm/kvm/internal/usbgadget"
 )
 
 // Message ..
@@ -46,6 +48,12 @@ func (m *Message) String() string {
 		return fmt.Sprintf("MouseReport{DX: %d, DY: %d, Button: %d}", m.d[0], m.d[1], m.d[2])
 	case TypeKeypressKeepAliveReport:
 		return "KeypressKeepAliveReport"
+	case TypeTouchscreenReport:
+		report, err := m.TouchscreenReport()
+		if err != nil {
+			return fmt.Sprintf("TouchscreenReport{Malformed: %v}", m.d)
+		}
+		return fmt.Sprintf("TouchscreenReport{Contacts: %+v}", report.Contacts)
 	case TypeKeyboardMacroReport:
 		if len(m.d) < 5 {
 			return fmt.Sprintf("KeyboardMacroReport{Malformed: %v}", m.d)
@@ -167,6 +175,44 @@ func (m *Message) PointerReport() (PointerReport, error) {
 		Y:      toInt(m.d[4:8]),
 		Button: uint8(m.d[8]),
 	}, nil
+}
+
+// TouchscreenReport ..
+type TouchscreenReport struct {
+	Contacts []usbgadget.TouchContact
+}
+
+// TouchscreenReport returns the touchscreen report from the message.
+// Layout: count (1 byte), then per contact: tip (1), id (1), x (2, BE), y (2, BE).
+func (m *Message) TouchscreenReport() (TouchscreenReport, error) {
+	if m.t != TypeTouchscreenReport {
+		return TouchscreenReport{}, fmt.Errorf("invalid message type: %d", m.t)
+	}
+
+	if len(m.d) < 1 {
+		return TouchscreenReport{}, fmt.Errorf("invalid message length: %d", len(m.d))
+	}
+
+	count := int(m.d[0])
+	if count > usbgadget.TouchscreenMaxContacts {
+		return TouchscreenReport{}, fmt.Errorf("too many contacts: %d", count)
+	}
+	if len(m.d) != 1+count*6 {
+		return TouchscreenReport{}, fmt.Errorf("invalid message length: %d", len(m.d))
+	}
+
+	contacts := make([]usbgadget.TouchContact, count)
+	for i := range contacts {
+		d := m.d[1+i*6:]
+		contacts[i] = usbgadget.TouchContact{
+			Tip: d[0] == 1,
+			ID:  d[1],
+			X:   binary.BigEndian.Uint16(d[2:4]),
+			Y:   binary.BigEndian.Uint16(d[4:6]),
+		}
+	}
+
+	return TouchscreenReport{Contacts: contacts}, nil
 }
 
 // MouseReport ..

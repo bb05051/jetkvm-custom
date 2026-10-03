@@ -52,6 +52,7 @@ export default function Actionbar({
     setOcrMode,
     usbSerialConsoleEnabled,
     setUsbSerialConsoleEnabled,
+    setUsbTouchscreenEnabled,
     isEmbedMode,
   } = useUiStore();
   const { remoteVirtualMediaState } = useMountMediaStore();
@@ -67,10 +68,11 @@ export default function Actionbar({
   useEffect(() => {
     send("getUsbDevices", {}, (resp: JsonRpcResponse) => {
       if ("error" in resp) return;
-      const devices = resp.result as { serial_console?: boolean };
+      const devices = resp.result as { serial_console?: boolean; touchscreen?: boolean };
       setUsbSerialConsoleEnabled(devices.serial_console === true);
+      setUsbTouchscreenEnabled(devices.touchscreen === true);
     });
-  }, [send, setUsbSerialConsoleEnabled]);
+  }, [send, setUsbSerialConsoleEnabled, setUsbTouchscreenEnabled]);
 
   // This is the only way to get a reliable state change for the popover
   // at time of writing this there is no mount, or unmount event for the popover

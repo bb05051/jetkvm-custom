@@ -10,6 +10,7 @@ export const HID_RPC_MESSAGE_TYPES = {
   MouseReport: 0x06,
   KeyboardMacroReport: 0x07,
   CancelKeyboardMacroReport: 0x08,
+  TouchscreenReport: 0x0a,
   KeyboardLedState: 0x32,
   KeysDownState: 0x33,
   KeyboardMacroState: 0x34,
@@ -354,6 +355,35 @@ export class PointerReportMessage extends RpcMessage {
       ...fromInt32toUint8(this.x),
       ...fromInt32toUint8(this.y),
       this.buttons,
+    ]);
+  }
+}
+
+export interface TouchContact {
+  id: number;
+  tip: boolean;
+  x: number;
+  y: number;
+}
+
+export class TouchscreenReportMessage extends RpcMessage {
+  contacts: TouchContact[];
+
+  constructor(contacts: TouchContact[]) {
+    super(HID_RPC_MESSAGE_TYPES.TouchscreenReport);
+    this.contacts = contacts;
+  }
+
+  marshal(): Uint8Array {
+    return new Uint8Array([
+      this.messageType,
+      this.contacts.length,
+      ...this.contacts.flatMap(c => [
+        c.tip ? 1 : 0,
+        c.id & 0x7f,
+        ...fromUint16toUint8(c.x),
+        ...fromUint16toUint8(c.y),
+      ]),
     ]);
   }
 }

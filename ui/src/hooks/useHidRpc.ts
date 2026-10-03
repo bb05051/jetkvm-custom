@@ -15,6 +15,8 @@ import {
   MouseReportMessage,
   PointerReportMessage,
   RpcMessage,
+  TouchContact,
+  TouchscreenReportMessage,
   unmarshalHidRpcMessage,
 } from "./hidRpc";
 
@@ -272,6 +274,17 @@ export function useHidRpc(onHidRpcMessage?: (payload: RpcMessage) => void) {
     [sendMessage, lastAbsButtons],
   );
 
+  const reportTouchscreenEvent = useCallback(
+    (contacts: TouchContact[], contactsChanged: boolean) => {
+      // Contact down/up frames go over the reliable channel, same as mouse buttons;
+      // move-only frames self-correct and can use the unreliable one.
+      sendMessage(new TouchscreenReportMessage(contacts), {
+        useUnreliableChannel: !contactsChanged,
+      });
+    },
+    [sendMessage],
+  );
+
   const reportRelMouseEvent = useCallback(
     (dx: number, dy: number, buttons: number) => {
       sendMessage(new MouseReportMessage(dx, dy, buttons));
@@ -337,6 +350,7 @@ export function useHidRpc(onHidRpcMessage?: (payload: RpcMessage) => void) {
     reportKeypressEvent,
     reportAbsMouseEvent,
     reportRelMouseEvent,
+    reportTouchscreenEvent,
     reportKeyboardMacroEvent,
     cancelOngoingKeyboardMacro,
     reportKeypressKeepAlive,

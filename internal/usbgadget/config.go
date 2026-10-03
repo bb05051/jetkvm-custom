@@ -58,6 +58,8 @@ var defaultGadgetConfig = map[string]gadgetConfigItem{
 	"absolute_mouse": absoluteMouseConfig,
 	// relative mouse HID
 	"relative_mouse": relativeMouseConfig,
+	// multi-touch touchscreen (FunctionFS, served from userspace)
+	"touchscreen": touchscreenConfig,
 	// USB audio sink
 	"audio": audioConfig,
 	// mass storage
@@ -73,6 +75,10 @@ func (u *UsbGadget) isGadgetConfigItemEnabled(itemKey string) bool {
 		return u.enabledDevices.AbsoluteMouse
 	case "relative_mouse":
 		return u.enabledDevices.RelativeMouse
+	case "touchscreen":
+		// Binding a FunctionFS function whose descriptors were never written
+		// fails the whole gadget, so only link it once userspace is ready.
+		return u.enabledDevices.Touchscreen && u.touchFFS != nil && u.touchFFS.ready()
 	case "keyboard":
 		return u.enabledDevices.Keyboard
 	case "mass_storage_base":
@@ -233,6 +239,12 @@ func (u *UsbGadget) configureUsbGadget(resetUsb bool, forceRebind bool) (bool, e
 }
 
 func (u *UsbGadget) configureUsbGadgetLocked(resetUsb bool, forceRebind bool) (bool, error) {
+	if u.enabledDevices.Touchscreen {
+		if err := u.ensureTouchscreenFFS(); err != nil {
+			u.log.Error().Err(err).Msg("touchscreen FunctionFS unavailable, leaving it out of the gadget")
+		}
+	}
+
 	disconnected := false
 	adopted := false
 	err := u.WithTransaction(func() error {
