@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import { LuCheck, LuMonitor, LuSettings } from "react-icons/lu";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LuCheck, LuMonitor, LuSettings, LuSquare, LuSquareCheck } from "react-icons/lu";
 
 import { m } from "@localizations/messages.js";
 import { JsonRpcResponse, useJsonRpc } from "@hooks/useJsonRpc";
 import { useDeviceUiNavigation } from "@hooks/useAppNavigation";
-import { useVideoStore } from "@hooks/stores";
+import { useSettingsStore, useVideoStore } from "@hooks/stores";
 import {
   SplitButtonCaret,
   SplitButtonGroup,
@@ -28,17 +28,26 @@ function fittedSize(edid: string): { width: number; height: number } | null {
   return { width: bytes[2] | (bytes[3] << 8), height: bytes[0] | (bytes[1] << 8) };
 }
 
+// Auto fit: how often to look at the video area, and how far its aspect
+// ratio may drift from the last fit before re-fitting. Aligning the mode to
+// multiples of 16 alone can change the ratio by up to ~1.8%.
+const AUTO_FIT_INTERVAL_MS = 10_000;
+const AUTO_FIT_TOLERANCE = 0.03;
+
 // Primary click: set an EDID matching the current video area once.
-// Caret: pick one of the EDID presets from the video settings.
+// Caret: auto fit toggle, then the EDID presets from the video settings.
 export default function ResolutionButton() {
   const { send } = useJsonRpc();
   const { navigateTo } = useDeviceUiNavigation();
-  const { clientWidth, clientHeight } = useVideoStore();
+  const { autoFitResolution, setAutoFitResolution } = useSettingsStore();
 
   const [presets, setPresets] = useState<EDIDPreset[]>([]);
   // Lowercased EDID currently set on the device
   const [currentEdid, setCurrentEdid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  // Aspect ratio of the area the current fit was made for
+  const lastFitRatio = useRef<number | null>(null);
 
   const refresh = useCallback(() => {
     void send("getEDIDPresets", {}, (resp: JsonRpcResponse) => {
@@ -55,7 +64,8 @@ export default function ResolutionButton() {
     refresh();
   }, [refresh]);
 
-  const fitToWindow = () => {
+  const fitToWindow = useCallback(() => {
+    const { clientWidth, clientHeight } = useVideoStore.getState();
     const width = Math.round(clientWidth);
     const height = Math.round(clientHeight);
     if (!width || !height) {
@@ -63,19 +73,22 @@ export default function ResolutionButton() {
       return;
     }
     setBusy(true);
+    busyRef.current = true;
     void send("setFitEDID", { width, height }, (resp: JsonRpcResponse) => {
       setBusy(false);
+      busyRef.current = false;
       if ("error" in resp) {
         notifications.error(
           m.resolution_fit_failed({ error: String(resp.error.data || m.unknown_error()) }),
         );
         return;
       }
+      lastFitRatio.current = width / height;
       const result = resp.result as { width: number; height: number };
       notifications.success(m.resolution_fit_success(result));
       refresh();
     });
-  };
+  }, [send, refresh]);
 
   const selectPreset = (preset: EDIDPreset) => {
     setBusy(true);
@@ -94,8 +107,38 @@ export default function ResolutionButton() {
 
   const fitted = currentEdid ? fittedSize(currentEdid) : null;
   const isPreset = presets.some(p => p.edid.toLowerCase() === currentEdid);
+  const edidKnown = currentEdid !== null;
+
+  // After a page load the device may already carry a fitted EDID: use its
+  // mode as the reference so opening the console does not re-fit.
+  useEffect(() => {
+    if (lastFitRatio.current === null && fitted) {
+      lastFitRatio.current = fitted.width / fitted.height;
+    }
+  }, [fitted]);
+
+  useEffect(() => {
+    if (!autoFitResolution || !edidKnown) return;
+    const check = () => {
+      if (document.hidden || busyRef.current) return;
+      const { clientWidth, clientHeight } = useVideoStore.getState();
+      if (!clientWidth || !clientHeight) return;
+      const last = lastFitRatio.current;
+      if (last && Math.abs(clientWidth / clientHeight / last - 1) < AUTO_FIT_TOLERANCE) return;
+      fitToWindow();
+    };
+    check();
+    const id = window.setInterval(check, AUTO_FIT_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [autoFitResolution, edidKnown, fitToWindow]);
 
   const menuItems: SplitButtonMenuItem[] = [
+    {
+      label: m.resolution_auto_fit(),
+      icon: autoFitResolution ? LuSquareCheck : LuSquare,
+      active: autoFitResolution,
+      onClick: () => setAutoFitResolution(!autoFitResolution),
+    },
     ...presets.map(preset => {
       const active = preset.edid.toLowerCase() === currentEdid;
       return {

@@ -883,6 +883,7 @@
     "rename_device_new_name_label": "New device name",
     "rename_device_new_name_placeholder": "Plex Media Server",
     "rename_device_no_name": "Please specify a name",
+    "resolution_auto_fit": "Auto fit (every 10 s)",
     "resolution_fit_current": "Fit to window ({width}x{height})",
     "resolution_fit_failed": "Failed to fit the resolution: {error}",
     "resolution_fit_no_area": "the video area is not known yet",

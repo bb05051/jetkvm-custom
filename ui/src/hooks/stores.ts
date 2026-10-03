@@ -372,6 +372,10 @@ export interface SettingsState {
   isCursorHidden: boolean;
   setCursorVisibility: (enabled: boolean) => void;
 
+  // Custom firmware: re-fit the resolution when the video area's aspect ratio changes
+  autoFitResolution: boolean;
+  setAutoFitResolution: (enabled: boolean) => void;
+
   mouseMode: string;
   setMouseMode: (mode: string) => void;
 
@@ -425,6 +429,9 @@ export const useSettingsStore = create(
     set => ({
       isCursorHidden: false,
       setCursorVisibility: (enabled: boolean) => set({ isCursorHidden: enabled }),
+
+      autoFitResolution: false,
+      setAutoFitResolution: (enabled: boolean) => set({ autoFitResolution: enabled }),
 
       mouseMode: "absolute",
       setMouseMode: (mode: string) => set({ mouseMode: mode }),
