@@ -8,13 +8,24 @@ import (
 	"math"
 )
 
+// Bases are the selectable fit sizes: the fitted mode keeps about the pixel
+// count of the base and only takes the aspect ratio from the window.
+var Bases = map[string]int{
+	"1280x720":  1280 * 720,
+	"1600x900":  1600 * 900,
+	"1920x1080": 1920 * 1080,
+}
+
+// DefaultBase is used when no base is given.
+const DefaultBase = "1600x900"
+
 // "Fit to window": build an EDID whose preferred mode matches the aspect
 // ratio of the browser's video area, so the host fills it without bars.
 //
-// The mode uses CVT standard blanking, padded so the HDMI-to-CSI bridge
-// keeps up (see BridgeSafe), within the template's range limits.
+// The mode uses CVT standard blanking (reduced blanking when standard would
+// exceed the limits, e.g. 1920x1080), padded so the HDMI-to-CSI bridge keeps
+// up (see BridgeSafe), within the template's range limits.
 const (
-	TargetPixels     = 1600 * 900 // only the aspect ratio follows the window
 	MaxWidth         = 1920
 	MaxHeight        = 1200
 	MinWidth         = 640
@@ -23,7 +34,8 @@ const (
 	MinHFreqKHz      = 30
 	MaxHFreqKHz      = 81
 	RefreshHz        = 60
-	Align            = 16
+	Align            = 16     // width
+	AlignHeight      = 8      // 8 keeps 1080 lines possible
 	ProductCode      = 0x0010 // distinguishes fitted EDIDs from the presets
 
 	// The TC358743 sends each line over CSI-2 at a fixed rate (4 lanes x
@@ -104,6 +116,32 @@ func CVTStandard(w, h, refresh int) Timing {
 	}
 }
 
+// CVTReduced implements VESA CVT 1.1 reduced blanking (v1).
+func CVTReduced(w, h, refresh int) Timing {
+	const (
+		hBlank, hSync, hFront = 160, 32, 48
+		vFront, minVBackPorch = 3, 6
+		minVBlankUs           = 460.0
+		clockStepKHz          = 250
+	)
+	vSync := cvtVSync(w, h)
+	hPeriodUs := (1e6/float64(refresh) - minVBlankUs) / float64(h)
+	vBlank := int(math.Floor(minVBlankUs/hPeriodUs)) + 1
+	vBlank = max(vBlank, vFront+vSync+minVBackPorch)
+	hTotal := w + hBlank
+	pixelClockKHz := int(math.Floor(float64(refresh*hTotal*(h+vBlank))/1000/clockStepKHz)) * clockStepKHz
+	return Timing{
+		hActive: w, hBlank: hBlank, hFront: hFront, hSync: hSync,
+		vActive: h, vBlank: vBlank, vFront: vFront, vSync: vSync,
+		pixelClockKHz: pixelClockKHz,
+	}
+}
+
+// withinLimits reports whether t is accepted by the template's range limits.
+func withinLimits(t Timing) bool {
+	return t.pixelClockKHz <= MaxPixelClockKHz && t.HFreqKHz() <= MaxHFreqKHz && t.HFreqKHz() >= MinHFreqKHz
+}
+
 // MinPixelClockKHz is the lowest pixel clock at which a w-pixel line stays
 // within MaxCSIShortfall.
 func MinPixelClockKHz(w int) int {
@@ -129,19 +167,25 @@ func BridgeSafe(t Timing, refresh int) Timing {
 }
 
 // Mode returns the timing used for a w x h preset or fit: CVT standard
-// blanking made bridge safe.
+// blanking made bridge safe, or reduced blanking (also made bridge safe)
+// when standard blanking would exceed the range limits.
 func Mode(w, h int) Timing {
-	return BridgeSafe(CVTStandard(w, h, RefreshHz), RefreshHz)
+	t := BridgeSafe(CVTStandard(w, h, RefreshHz), RefreshHz)
+	if withinLimits(t) {
+		return t
+	}
+	return BridgeSafe(CVTReduced(w, h, RefreshHz), RefreshHz)
 }
 
-// alignNearest rounds v to the nearest multiple of Align within [lo, hi].
-func alignNearest(v float64, lo, hi int) int {
-	a := int(math.Round(v/Align)) * Align
-	return max(lo, min(a, hi/Align*Align))
+// alignNearest rounds v to the nearest multiple of step within [lo, hi].
+func alignNearest(v float64, step, lo, hi int) int {
+	a := int(math.Round(v/float64(step))) * step
+	return max(lo, min(a, hi/step*step))
 }
 
-// Fit picks a mode with the aspect ratio of areaW:areaH.
-func Fit(areaW, areaH int) (Timing, error) {
+// Fit picks a mode with the aspect ratio of areaW:areaH and about
+// targetPixels pixels.
+func Fit(areaW, areaH, targetPixels int) (Timing, error) {
 	if areaW <= 0 || areaH <= 0 {
 		return Timing{}, fmt.Errorf("invalid video area %dx%d", areaW, areaH)
 	}
@@ -150,7 +194,7 @@ func Fit(areaW, areaH int) (Timing, error) {
 	maxRatio := float64(MaxWidth) / MinHeight
 	ratio = math.Max(minRatio, math.Min(maxRatio, ratio))
 
-	h := math.Sqrt(TargetPixels / ratio)
+	h := math.Sqrt(float64(targetPixels) / ratio)
 	w := h * ratio
 	if w > MaxWidth {
 		w, h = MaxWidth, MaxWidth/ratio
@@ -161,10 +205,9 @@ func Fit(areaW, areaH int) (Timing, error) {
 
 	// Shrink until the timing fits the pixel clock and line rate limits.
 	for scale := 1.0; scale > 0.3; scale -= 0.02 {
-		tw := alignNearest(w*scale, MinWidth, MaxWidth)
-		th := alignNearest(h*scale, MinHeight, MaxHeight)
-		t := Mode(tw, th)
-		if t.pixelClockKHz <= MaxPixelClockKHz && t.HFreqKHz() <= MaxHFreqKHz && t.HFreqKHz() >= MinHFreqKHz {
+		tw := alignNearest(w*scale, Align, MinWidth, MaxWidth)
+		th := alignNearest(h*scale, AlignHeight, MinHeight, MaxHeight)
+		if t := Mode(tw, th); withinLimits(t) {
 			return t, nil
 		}
 	}

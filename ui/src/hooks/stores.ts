@@ -368,6 +368,9 @@ export interface BacklightSettings {
 
 export type VideoScaling = "fit" | "actual";
 
+export const FIT_BASES = ["1280x720", "1600x900", "1920x1080"] as const;
+export type FitBase = (typeof FIT_BASES)[number];
+
 export interface SettingsState {
   isCursorHidden: boolean;
   setCursorVisibility: (enabled: boolean) => void;
@@ -378,6 +381,12 @@ export interface SettingsState {
   // Same, but applied while the video is in fullscreen
   autoFitResolutionFullscreen: boolean;
   setAutoFitResolutionFullscreen: (enabled: boolean) => void;
+  // Size the fitted resolution is based on (see internal/edidfit.Bases)
+  fitBase: FitBase;
+  setFitBase: (base: FitBase) => void;
+  // Default JetKVM EDID with all resolution options locked
+  resolutionSafeMode: boolean;
+  setResolutionSafeMode: (enabled: boolean) => void;
 
   mouseMode: string;
   setMouseMode: (mode: string) => void;
@@ -438,6 +447,10 @@ export const useSettingsStore = create(
       autoFitResolutionFullscreen: false,
       setAutoFitResolutionFullscreen: (enabled: boolean) =>
         set({ autoFitResolutionFullscreen: enabled }),
+      fitBase: "1600x900",
+      setFitBase: (base: FitBase) => set({ fitBase: base }),
+      resolutionSafeMode: false,
+      setResolutionSafeMode: (enabled: boolean) => set({ resolutionSafeMode: enabled }),
 
       mouseMode: "absolute",
       setMouseMode: (mode: string) => set({ mouseMode: mode }),

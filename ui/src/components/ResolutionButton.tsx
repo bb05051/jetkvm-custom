@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuCheck, LuMonitor } from "react-icons/lu";
+import { LuMonitor } from "react-icons/lu";
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 
 import { m } from "@localizations/messages.js";
 import { JsonRpcResponse, useJsonRpc } from "@hooks/useJsonRpc";
 import { useDeviceUiNavigation } from "@hooks/useAppNavigation";
-import { useSettingsStore, useUiStore, useVideoStore } from "@hooks/stores";
+import { FIT_BASES, FitBase, useSettingsStore, useUiStore, useVideoStore } from "@hooks/stores";
 import { SplitButtonGroup, SplitButtonPrimary } from "@components/SplitButton";
 import { Button } from "@components/Button";
-import Card, { GridCard } from "@components/Card";
+import { GridCard } from "@components/Card";
 import { CheckboxWithLabel } from "@components/Checkbox";
 import { SettingsPageHeader } from "@components/SettingsPageheader";
 import { cx } from "@/cva.config";
@@ -31,8 +31,8 @@ function fittedSize(edid: string): { width: number; height: number } | null {
 }
 
 // Auto fit: how often to look at the video area, and how far its aspect
-// ratio may drift from the last fit before re-fitting. Aligning the mode to
-// multiples of 16 alone can change the ratio by up to ~1.8%.
+// ratio may drift from the last fit before re-fitting. Aligning the mode
+// alone can change the ratio by up to ~1.8%.
 // The check only compares ratios in the browser: nothing is sent to the
 // device unless the ratio moved. Fullscreen is checked the same way, since
 // rotating the client changes its area too.
@@ -49,12 +49,13 @@ const caretClass = cx(
   "dark:border-slate-300/20 dark:border-l-slate-300/10 dark:bg-slate-800 dark:text-white",
   "transition-all duration-200 hover:bg-blue-50/80 active:bg-blue-100/60",
   "dark:hover:bg-slate-700 dark:active:bg-slate-600",
+  "disabled:pointer-events-none disabled:opacity-50",
 );
 
-// Primary click: set an EDID matching the current video area once.
-// Caret: a panel (like Paste text) with the auto fit toggle and the EDID
-// presets from the video settings. Auto fit runs here, so it keeps working
-// while the panel is closed.
+// Primary click: fit the resolution to the current video area once.
+// Caret: a panel (like Paste text) with safe mode, the base size, and the
+// auto fit options. Auto fit runs here, so it keeps working while the panel
+// is closed.
 export default function ResolutionButton({
   onPanelStateChange,
 }: {
@@ -67,6 +68,10 @@ export default function ResolutionButton({
     setAutoFitResolution,
     autoFitResolutionFullscreen,
     setAutoFitResolutionFullscreen,
+    fitBase,
+    setFitBase,
+    resolutionSafeMode,
+    setResolutionSafeMode,
   } = useSettingsStore();
   const { setDisableVideoFocusTrap } = useUiStore();
 
@@ -98,35 +103,48 @@ export default function ResolutionButton({
     refresh();
   }, [refresh]);
 
-  const fitToWindow = useCallback(() => {
-    const { clientWidth, clientHeight } = useVideoStore.getState();
-    const width = Math.round(clientWidth);
-    const height = Math.round(clientHeight);
-    if (!width || !height) {
-      notifications.error(m.resolution_fit_failed({ error: m.resolution_fit_no_area() }));
-      return;
-    }
-    setBusy(true);
-    busyRef.current = true;
-    void send("setFitEDID", { width, height }, (resp: JsonRpcResponse) => {
-      setBusy(false);
-      busyRef.current = false;
-      if ("error" in resp) {
-        notifications.error(
-          m.resolution_fit_failed({ error: String(resp.error.data || m.unknown_error()) }),
-        );
+  const fitToWindow = useCallback(
+    (base?: FitBase) => {
+      const { clientWidth, clientHeight } = useVideoStore.getState();
+      const width = Math.round(clientWidth);
+      const height = Math.round(clientHeight);
+      if (!width || !height) {
+        notifications.error(m.resolution_fit_failed({ error: m.resolution_fit_no_area() }));
         return;
       }
-      lastFitRatio.current = width / height;
-      const result = resp.result as { width: number; height: number };
-      notifications.success(m.resolution_fit_success(result));
-      refresh();
-    });
-  }, [send, refresh]);
+      setBusy(true);
+      busyRef.current = true;
+      void send(
+        "setFitEDID",
+        { width, height, base: base ?? useSettingsStore.getState().fitBase },
+        (resp: JsonRpcResponse) => {
+          setBusy(false);
+          busyRef.current = false;
+          if ("error" in resp) {
+            notifications.error(
+              m.resolution_fit_failed({ error: String(resp.error.data || m.unknown_error()) }),
+            );
+            return;
+          }
+          lastFitRatio.current = width / height;
+          const result = resp.result as { width: number; height: number };
+          notifications.success(m.resolution_fit_success(result));
+          refresh();
+        },
+      );
+    },
+    [send, refresh],
+  );
 
-  const selectPreset = (preset: EDIDPreset) => {
+  const setSafeMode = (enabled: boolean) => {
+    setResolutionSafeMode(enabled);
+    if (!enabled) {
+      fitToWindow();
+      return;
+    }
+    // An empty EDID restores the default JetKVM EDID.
     setBusy(true);
-    void send("setEDID", { edid: preset.edid }, (resp: JsonRpcResponse) => {
+    void send("setEDID", { edid: "" }, (resp: JsonRpcResponse) => {
       setBusy(false);
       if ("error" in resp) {
         notifications.error(
@@ -134,13 +152,19 @@ export default function ResolutionButton({
         );
         return;
       }
-      notifications.success(m.video_edid_set_success({ edid: preset.name }));
+      lastFitRatio.current = null;
+      notifications.success(m.resolution_safe_mode_on());
       refresh();
     });
   };
 
+  const selectBase = (base: FitBase) => {
+    setFitBase(base);
+    fitToWindow(base);
+  };
+
   const fitted = currentEdid ? fittedSize(currentEdid) : null;
-  const isPreset = presets.some(p => p.edid.toLowerCase() === currentEdid);
+  const currentPreset = presets.find(p => p.edid.toLowerCase() === currentEdid);
   const edidKnown = currentEdid !== null;
 
   // After a page load the device may already carry a fitted EDID: use its
@@ -158,9 +182,10 @@ export default function ResolutionButton({
   }, []);
 
   // Fullscreen-only auto fit: remember the EDID on the way in, put it back on
-  // the way out so the windowed resolution is not left changed.
+  // the way out (only if it changed) so the windowed resolution is kept.
   useEffect(() => {
     const settings = useSettingsStore.getState();
+    if (settings.resolutionSafeMode) return;
     if (isFullscreen) {
       if (settings.autoFitResolutionFullscreen && !settings.autoFitResolution) {
         edidBeforeFullscreen.current = rawEdid.current;
@@ -184,7 +209,8 @@ export default function ResolutionButton({
     });
   }, [isFullscreen, send, refresh]);
 
-  const autoFitActive = isFullscreen ? autoFitResolutionFullscreen : autoFitResolution;
+  const autoFitActive =
+    !resolutionSafeMode && (isFullscreen ? autoFitResolutionFullscreen : autoFitResolution);
 
   useEffect(() => {
     if (!autoFitActive || !edidKnown) return;
@@ -204,6 +230,11 @@ export default function ResolutionButton({
     };
   }, [autoFitActive, isFullscreen, edidKnown, fitToWindow]);
 
+  const locked = busy || resolutionSafeMode;
+  const currentLabel = fitted
+    ? m.resolution_fit_current(fitted)
+    : (currentPreset?.name ?? (edidKnown ? m.video_edid_custom() : "…"));
+
   return (
     <Popover>
       <SplitButtonGroup>
@@ -211,8 +242,8 @@ export default function ResolutionButton({
           icon={LuMonitor}
           label={m.action_bar_resolution()}
           title={m.resolution_fit_tooltip()}
-          disabled={busy}
-          onClick={fitToWindow}
+          disabled={locked}
+          onClick={() => fitToWindow()}
         />
         <PopoverButton className={caretClass} onClick={() => setDisableVideoFocusTrap(true)}>
           <ChevronDownIcon className="size-3.5 text-black dark:text-white" />
@@ -236,61 +267,73 @@ export default function ResolutionButton({
                     title={m.action_bar_resolution()}
                     description={m.resolution_panel_description()}
                   />
-                  <div className="flex items-center justify-between gap-x-2">
-                    <CheckboxWithLabel
-                      label={m.resolution_auto_fit()}
-                      description={m.resolution_auto_fit_description()}
-                      checked={autoFitResolution}
-                      onChange={e => setAutoFitResolution(e.target.checked)}
-                    />
-                    <Button
-                      size="SM"
-                      theme="light"
-                      text={m.resolution_fit_now()}
-                      disabled={busy}
-                      onClick={fitToWindow}
-                    />
-                  </div>
+
                   <CheckboxWithLabel
-                    label={m.resolution_auto_fit_fullscreen()}
-                    description={m.resolution_auto_fit_fullscreen_description()}
-                    checked={autoFitResolutionFullscreen}
-                    onChange={e => setAutoFitResolutionFullscreen(e.target.checked)}
+                    label={m.resolution_safe_mode()}
+                    description={m.resolution_safe_mode_description()}
+                    checked={resolutionSafeMode}
+                    disabled={busy}
+                    onChange={e => setSafeMode(e.target.checked)}
                   />
-                  <Card className="animate-fadeIn opacity-0">
-                    <div className="w-full divide-y divide-slate-700/30 dark:divide-slate-600/30">
-                      {presets.map(preset => {
-                        const selected = preset.edid.toLowerCase() === currentEdid;
-                        return (
-                          <button
-                            key={preset.edid}
-                            type="button"
-                            disabled={busy}
-                            onClick={() => selectPreset(preset)}
-                            className={cx(
-                              "flex w-full items-center justify-between gap-x-2 p-3 text-left text-sm",
-                              "text-slate-900 hover:bg-slate-100 disabled:opacity-60 dark:text-slate-100 dark:hover:bg-slate-700/50",
-                              selected && "font-semibold",
-                            )}
+
+                  <fieldset disabled={locked} className="space-y-4 disabled:opacity-50">
+                    <div className="space-y-1.5">
+                      <div className="text-sm font-semibold text-black dark:text-white">
+                        {m.resolution_base()}
+                      </div>
+                      <div
+                        role="radiogroup"
+                        className={cx(
+                          "flex divide-x divide-slate-800/20 rounded-md border border-slate-800/20",
+                          "dark:divide-slate-300/20 dark:border-slate-300/20",
+                        )}
+                      >
+                        {FIT_BASES.map(base => (
+                          <label
+                            key={base}
+                            className="flex flex-1 cursor-pointer items-center justify-center gap-x-2 px-2 py-2 text-sm text-slate-900 dark:text-slate-100"
                           >
-                            <span>{preset.name}</span>
-                            {selected && (
-                              <LuCheck className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-500" />
-                            )}
-                          </button>
-                        );
-                      })}
-                      {currentEdid && !isPreset && (
-                        <div className="flex w-full items-center justify-between gap-x-2 p-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          <span>
-                            {fitted ? m.resolution_fit_current(fitted) : m.video_edid_custom()}
-                          </span>
-                          <LuCheck className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-500" />
-                        </div>
-                      )}
+                            <input
+                              type="radio"
+                              name="resolution-fit-base"
+                              value={base}
+                              checked={fitBase === base}
+                              onChange={() => selectBase(base)}
+                              className="text-blue-700 focus:ring-blue-700 dark:bg-slate-800"
+                            />
+                            <span>{base.replace("x", "×")}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </Card>
-                  <div className="flex justify-end">
+
+                    <div className="flex items-center justify-between gap-x-2">
+                      <CheckboxWithLabel
+                        label={m.resolution_auto_fit()}
+                        description={m.resolution_auto_fit_description()}
+                        checked={autoFitResolution}
+                        onChange={e => setAutoFitResolution(e.target.checked)}
+                      />
+                      <Button
+                        size="SM"
+                        theme="light"
+                        text={m.resolution_fit_now()}
+                        disabled={locked}
+                        onClick={() => fitToWindow()}
+                      />
+                    </div>
+                    <CheckboxWithLabel
+                      label={m.resolution_auto_fit_fullscreen()}
+                      description={m.resolution_auto_fit_fullscreen_description()}
+                      checked={autoFitResolutionFullscreen}
+                      onChange={e => setAutoFitResolutionFullscreen(e.target.checked)}
+                    />
+                  </fieldset>
+
+                  <div className="flex items-center justify-between gap-x-2">
+                    <span className="text-xs text-slate-600 dark:text-slate-400">
+                      {m.resolution_current({ current: currentLabel })}
+                    </span>
                     <Button
                       size="SM"
                       theme="light"

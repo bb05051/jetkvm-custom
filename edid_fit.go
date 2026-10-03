@@ -17,9 +17,18 @@ type fitEDIDResult struct {
 }
 
 // rpcSetFitEDID sets an EDID whose preferred mode matches the aspect ratio
-// of the client's video area (see internal/edidfit).
-func rpcSetFitEDID(width int, height int) (fitEDIDResult, error) {
-	t, err := edidfit.Fit(width, height)
+// of the client's video area, at about the size of base ("1280x720",
+// "1600x900" or "1920x1080"; empty means edidfit.DefaultBase).
+func rpcSetFitEDID(width int, height int, base string) (fitEDIDResult, error) {
+	if base == "" {
+		base = edidfit.DefaultBase
+	}
+	targetPixels, ok := edidfit.Bases[base]
+	if !ok {
+		return fitEDIDResult{}, fmt.Errorf("unknown fit base %q", base)
+	}
+
+	t, err := edidfit.Fit(width, height, targetPixels)
 	if err != nil {
 		return fitEDIDResult{}, err
 	}

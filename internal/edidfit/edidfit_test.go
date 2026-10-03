@@ -30,12 +30,12 @@ func TestModeMatchesPresets(t *testing.T) {
 func TestFit(t *testing.T) {
 	areas := [][2]int{{1666, 689}, {1920, 1080}, {390, 844}, {1080, 1080}, {3000, 400}, {400, 3000}, {1, 1}}
 	for _, a := range areas {
-		tm, err := Fit(a[0], a[1])
+		tm, err := Fit(a[0], a[1], Bases[DefaultBase])
 		if err != nil {
 			t.Fatalf("%v: %v", a, err)
 		}
 		w, h := tm.Width(), tm.Height()
-		if w%Align != 0 || h%Align != 0 || w > MaxWidth || h > MaxHeight || w < MinWidth || h < MinHeight {
+		if w%Align != 0 || h%AlignHeight != 0 || w > MaxWidth || h > MaxHeight || w < MinWidth || h < MinHeight {
 			t.Errorf("%v -> %dx%d out of bounds", a, w, h)
 		}
 		if tm.PixelClockKHz() > MaxPixelClockKHz || tm.HFreqKHz() > MaxHFreqKHz || tm.HFreqKHz() < MinHFreqKHz {
@@ -45,7 +45,7 @@ func TestFit(t *testing.T) {
 
 	// Every fitted mode must keep the bridge fed and fit the DTD fields.
 	for _, a := range areas {
-		tm, _ := Fit(a[0], a[1])
+		tm, _ := Fit(a[0], a[1], Bases[DefaultBase])
 		shortfall := float64(tm.hActive) * (1 - float64(tm.pixelClockKHz)/CSIPixelRateKHz)
 		if shortfall > MaxCSIShortfall {
 			t.Errorf("%v -> %dx%d: CSI shortfall %.0f px", a, tm.Width(), tm.Height(), shortfall)
@@ -56,20 +56,20 @@ func TestFit(t *testing.T) {
 	}
 
 	// A typical browser area keeps its aspect ratio within 2%.
-	tm, _ := Fit(1666, 689)
+	tm, _ := Fit(1666, 689, Bases[DefaultBase])
 	got, want := float64(tm.Width())/float64(tm.Height()), 1666.0/689.0
 	if got/want < 0.98 || got/want > 1.02 {
 		t.Errorf("1666x689 -> %dx%d, ratio %.3f want %.3f", tm.Width(), tm.Height(), got, want)
 	}
 
-	if _, err := Fit(0, 100); err == nil {
+	if _, err := Fit(0, 100, Bases[DefaultBase]); err == nil {
 		t.Error("expected an error for an empty area")
 	}
 }
 
 func TestBuild(t *testing.T) {
 	template, _ := hex.DecodeString("00FFFFFFFFFFFF004C2D00000000000020130103803018780AB811A6554B9B25135054BFEF80714F8100814081809500950F01010101DB3300507280223068C03A00B45A0000001C662156AA51001E30468F3300A05A0000001E000000FD00384B1E510E010A202020202020000000FC0053796E634D61737465720A2020018C020313F0230907078301000066030C001000809A29A0D05184223050983600905A0000001C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000B7")
-	tm, _ := Fit(1666, 689)
+	tm, _ := Fit(1666, 689, Bases[DefaultBase])
 	edid, err := Build(template, tm)
 	if err != nil {
 		t.Fatal(err)
@@ -91,5 +91,31 @@ func TestBuild(t *testing.T) {
 	}
 	if bytes.Equal(edid[54:72], template[54:72]) {
 		t.Error("preferred mode not replaced")
+	}
+}
+
+// Every base works for every area: within limits, bridge safe, and the
+// bigger the base the bigger the mode. 1920x1080 itself needs reduced blanking.
+func TestFitBases(t *testing.T) {
+	for _, a := range [][2]int{{1920, 1080}, {1666, 689}, {2448, 1848}, {393, 852}} {
+		prev := 0
+		for _, base := range []string{"1280x720", "1600x900", "1920x1080"} {
+			tm, err := Fit(a[0], a[1], Bases[base])
+			if err != nil {
+				t.Fatalf("%v %s: %v", a, base, err)
+			}
+			shortfall := float64(tm.hActive) * (1 - float64(tm.pixelClockKHz)/CSIPixelRateKHz)
+			if !withinLimits(tm) || shortfall > MaxCSIShortfall {
+				t.Errorf("%v %s -> %dx%d @ %d kHz, shortfall %.0f", a, base, tm.Width(), tm.Height(), tm.pixelClockKHz, shortfall)
+			}
+			if px := tm.Width() * tm.Height(); px < prev {
+				t.Errorf("%v %s -> %dx%d is smaller than the previous base", a, base, tm.Width(), tm.Height())
+			} else {
+				prev = px
+			}
+		}
+	}
+	if tm, _ := Fit(1920, 1080, Bases["1920x1080"]); tm.Width() != 1920 || tm.Height() != 1080 {
+		t.Errorf("16:9 at the 1920x1080 base -> %dx%d, want 1920x1080", tm.Width(), tm.Height())
 	}
 }
