@@ -154,6 +154,12 @@ func (m *MQTTManager) handleUpdateInstallCommand(client mqtt.Client, msg mqtt.Me
 		return
 	}
 	mqttLogger.Info().Msg("received update install command via MQTT")
+	if customFirmware {
+		// An official update would replace the custom firmware without the
+		// warning the web UI shows, so remote installs are refused.
+		mqttLogger.Warn().Msg("update install command rejected: custom firmware, update from the web UI")
+		return
+	}
 
 	// Set flag to keep in_progress state until OTA state confirms updating
 	m.updateRequested.Store(true)

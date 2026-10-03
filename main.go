@@ -46,6 +46,7 @@ func Main() {
 	}
 
 	LoadConfig()
+	disableAutoUpdateForCustomFirmware()
 
 	var cancel context.CancelFunc
 	appCtx, cancel = context.WithCancel(context.Background())
@@ -134,7 +135,7 @@ func Main() {
 
 		for {
 			logger.Info().Bool("auto_update_enabled", config.AutoUpdateEnabled).Msg("auto-update check")
-			if !config.AutoUpdateEnabled {
+			if customFirmware || !config.AutoUpdateEnabled {
 				logger.Debug().Msg("auto-update disabled")
 				time.Sleep(5 * time.Minute) // we'll check if auto-updates are enabled in five minutes
 				continue

@@ -7,6 +7,7 @@ import { useDeviceUiNavigation } from "@hooks/useAppNavigation";
 import { useVersion } from "@hooks/useVersion";
 import { Button } from "@components/Button";
 import Card from "@components/Card";
+import { ConfirmDialog } from "@components/ConfirmDialog";
 import LoadingSpinner from "@components/LoadingSpinner";
 import UpdatingStatusCard, { type UpdatePart } from "@components/UpdatingStatusCard";
 import { m } from "@localizations/messages.js";
@@ -500,11 +501,29 @@ function UpdateAvailableState({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  // Custom firmware: an official update replaces it, so confirm first.
+  const [showCustomFirmwareWarning, setShowCustomFirmwareWarning] = useState(false);
+
   return (
     <div className="flex flex-col items-start justify-start space-y-4 text-left">
+      <ConfirmDialog
+        open={showCustomFirmwareWarning}
+        onClose={() => setShowCustomFirmwareWarning(false)}
+        title={m.general_update_custom_firmware_confirm_title()}
+        description={m.general_update_custom_firmware_warning()}
+        variant="danger"
+        confirmText={m.general_update_custom_firmware_confirm_button()}
+        onConfirm={() => {
+          setShowCustomFirmwareWarning(false);
+          onConfirm();
+        }}
+      />
       <div className="text-left">
         <p className="text-base font-semibold text-black dark:text-white">
           {m.general_update_available_title()}
+        </p>
+        <p className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">
+          {m.general_update_custom_firmware_warning()}
         </p>
         <p className="mb-2 text-sm text-slate-600 dark:text-slate-300">
           {m.general_update_available_description()}
@@ -534,7 +553,7 @@ function UpdateAvailableState({
             size="SM"
             theme="primary"
             text={m.general_update_now_button()}
-            onClick={onConfirm}
+            onClick={() => setShowCustomFirmwareWarning(true)}
             data-testid="update-now-button"
           />
           <Button

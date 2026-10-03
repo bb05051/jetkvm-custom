@@ -224,10 +224,13 @@ func rpcSetVideoCodecPreference(codec string) error {
 }
 
 func rpcGetAutoUpdateState() (bool, error) {
-	return config.AutoUpdateEnabled, nil
+	return config.AutoUpdateEnabled && !customFirmware, nil
 }
 
 func rpcSetAutoUpdateState(enabled bool) (bool, error) {
+	if customFirmware && enabled {
+		return false, errAutoUpdateDisabled
+	}
 	config.AutoUpdateEnabled = enabled
 	if err := SaveConfig(); err != nil {
 		return config.AutoUpdateEnabled, fmt.Errorf("failed to save config: %w", err)
