@@ -11,9 +11,8 @@ import (
 // "Fit to window": build an EDID whose preferred mode matches the aspect
 // ratio of the browser's video area, so the host fills it without bars.
 //
-// The TC358743 drops lines with reduced-blanking timings, so the mode uses
-// CVT standard blanking and stays within what the bridge and the template's
-// range limits accept.
+// The mode uses CVT standard blanking, padded so the HDMI-to-CSI bridge
+// keeps up (see BridgeSafe), within the template's range limits.
 const (
 	TargetPixels     = 1600 * 900 // only the aspect ratio follows the window
 	MaxWidth         = 1920
@@ -26,6 +25,16 @@ const (
 	RefreshHz        = 60
 	Align            = 16
 	ProductCode      = 0x0010 // distinguishes fitted EDIDs from the presets
+
+	// The TC358743 sends each line over CSI-2 at a fixed rate (4 lanes x
+	// 620 Mbps, 16-bit YUV 4:2:2 = 155 Mpx/s) after buffering a fixed amount
+	// of it. When the HDMI pixel clock is much lower, the CSI side drains the
+	// line faster than it fills and the tail is lost (green stripes, rkcif
+	// "csi size err"). The shortfall per line is w * (1 - pclk / CSI rate):
+	// 1792x896 @ 132.75 MHz (258 px) works, 1792x800 @ 117.27 MHz (436 px)
+	// breaks. Keep it at or below MaxCSIShortfall.
+	CSIPixelRateKHz = 155000
+	MaxCSIShortfall = 200
 )
 
 type Timing struct {
@@ -42,6 +51,7 @@ func (t Timing) Height() int { return t.vActive }
 func (t Timing) PixelClockKHz() int { return t.pixelClockKHz }
 
 func (t Timing) hTotal() int { return t.hActive + t.hBlank }
+func (t Timing) vTotal() int { return t.vActive + t.vBlank }
 
 // HFreqKHz returns the horizontal line rate.
 func (t Timing) HFreqKHz() float64 {
@@ -94,6 +104,36 @@ func CVTStandard(w, h, refresh int) Timing {
 	}
 }
 
+// MinPixelClockKHz is the lowest pixel clock at which a w-pixel line stays
+// within MaxCSIShortfall.
+func MinPixelClockKHz(w int) int {
+	return int(math.Ceil(float64(CSIPixelRateKHz) * float64(w-MaxCSIShortfall) / float64(w)))
+}
+
+// BridgeSafe widens the horizontal blanking of t, if needed, so the pixel
+// clock reaches MinPixelClockKHz at the same refresh rate. Wider blanking is
+// harmless for the bridge; a too slow pixel clock is not.
+func BridgeSafe(t Timing, refresh int) Timing {
+	const clockStepKHz = 250
+	minKHz := MinPixelClockKHz(t.hActive)
+	if t.pixelClockKHz >= minKHz {
+		return t
+	}
+	hTotal := int(math.Ceil(float64(minKHz) * 1000 / float64(refresh*t.vTotal())))
+	hTotal = (hTotal + 7) / 8 * 8 // CVT character cell
+	// The back porch is the remainder of the blanking, so it takes the extra
+	// width; the front porch field in a DTD only holds 10 bits.
+	t.hBlank += hTotal - t.hTotal()
+	t.pixelClockKHz = int(math.Ceil(float64(hTotal*t.vTotal()*refresh)/1000/clockStepKHz)) * clockStepKHz
+	return t
+}
+
+// Mode returns the timing used for a w x h preset or fit: CVT standard
+// blanking made bridge safe.
+func Mode(w, h int) Timing {
+	return BridgeSafe(CVTStandard(w, h, RefreshHz), RefreshHz)
+}
+
 // alignNearest rounds v to the nearest multiple of Align within [lo, hi].
 func alignNearest(v float64, lo, hi int) int {
 	a := int(math.Round(v/Align)) * Align
@@ -123,7 +163,7 @@ func Fit(areaW, areaH int) (Timing, error) {
 	for scale := 1.0; scale > 0.3; scale -= 0.02 {
 		tw := alignNearest(w*scale, MinWidth, MaxWidth)
 		th := alignNearest(h*scale, MinHeight, MaxHeight)
-		t := CVTStandard(tw, th, RefreshHz)
+		t := Mode(tw, th)
 		if t.pixelClockKHz <= MaxPixelClockKHz && t.HFreqKHz() <= MaxHFreqKHz && t.HFreqKHz() >= MinHFreqKHz {
 			return t, nil
 		}

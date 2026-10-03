@@ -6,21 +6,21 @@ import (
 	"testing"
 )
 
-// The hand-made presets in edid_presets.go were generated with the same CVT
-// formula; their preferred-mode descriptors must come out identical.
-func TestCVTStandardMatchesPresets(t *testing.T) {
+// The derived presets in edid_presets.go are generated with Mode; their
+// preferred-mode descriptors must come out identical.
+func TestModeMatchesPresets(t *testing.T) {
 	cases := []struct {
 		w, h int
 		dtd  string
 	}{
-		{1920, 800, "D430805072201F3060C83A00B45A0000001C"},
-		{1440, 1088, "AF32A0E05140294058983A00B45A0000001C"},
-		{1600, 1000, "A933401062E8263060A83600B45A0000001C"},
+		{1920, 800, "6536806873201F3060C83A00B45A0000001C"},
+		{1440, 1088, "5834A0185240294058983A00B45A0000001C"},
+		{1600, 1000, "3935404862E8263060A83600B45A0000001C"},
 	}
 	for _, c := range cases {
 		want, _ := hex.DecodeString(c.dtd)
 		got := bytes.Clone(want)
-		WriteDTD(got, CVTStandard(c.w, c.h, RefreshHz))
+		WriteDTD(got, Mode(c.w, c.h))
 		if !bytes.Equal(got, want) {
 			t.Errorf("%dx%d: DTD %X, want %X", c.w, c.h, got, want)
 		}
@@ -40,6 +40,18 @@ func TestFit(t *testing.T) {
 		}
 		if tm.PixelClockKHz() > MaxPixelClockKHz || tm.HFreqKHz() > MaxHFreqKHz || tm.HFreqKHz() < MinHFreqKHz {
 			t.Errorf("%v -> %dx%d: %d kHz pixel clock, %.1f kHz line rate", a, w, h, tm.PixelClockKHz(), tm.HFreqKHz())
+		}
+	}
+
+	// Every fitted mode must keep the bridge fed and fit the DTD fields.
+	for _, a := range areas {
+		tm, _ := Fit(a[0], a[1])
+		shortfall := float64(tm.hActive) * (1 - float64(tm.pixelClockKHz)/CSIPixelRateKHz)
+		if shortfall > MaxCSIShortfall {
+			t.Errorf("%v -> %dx%d: CSI shortfall %.0f px", a, tm.Width(), tm.Height(), shortfall)
+		}
+		if tm.hBlank > 4095 || tm.vBlank > 4095 || tm.hFront > 1023 || tm.hSync > 1023 || tm.vFront > 63 || tm.vSync > 63 {
+			t.Errorf("%v -> %+v does not fit the DTD fields", a, tm)
 		}
 	}
 
