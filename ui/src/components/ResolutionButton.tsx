@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LuMonitor } from "react-icons/lu";
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
+import { useLocation } from "react-router";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 
 import { m } from "@localizations/messages.js";
@@ -42,6 +43,14 @@ const AUTO_FIT_TOLERANCE = 0.03;
 // changes, so the layout has settled.
 const AUTO_FIT_SETTLE_MS = 1_000;
 
+// The device holds EDID changes made within 10 s of the previous one and
+// applies the last of them afterwards; re-read the state once that happened.
+const HELD_CHANGE_REFRESH_MARGIN_MS = 1_500;
+
+// While another device has taken over the session, this tab must not change
+// the resolution (the "other session" popup is shown over the console).
+const isOtherSessionPath = (path: string) => /\/other-session\/?$/i.test(path);
+
 // Matches the caret half of SplitButton (which only offers a Menu caret).
 const caretClass = cx(
   "inline-flex h-[28px] cursor-pointer items-center rounded-r-sm px-1 select-none",
@@ -74,6 +83,10 @@ export default function ResolutionButton({
     setResolutionSafeMode,
   } = useSettingsStore();
   const { setDisableVideoFocusTrap } = useUiStore();
+  const location = useLocation();
+  const otherSession = isOtherSessionPath(location.pathname);
+  const otherSessionRef = useRef(otherSession);
+  otherSessionRef.current = otherSession;
 
   const [presets, setPresets] = useState<EDIDPreset[]>([]);
   // Lowercased EDID currently set on the device (raw value kept for restoring)
@@ -105,6 +118,7 @@ export default function ResolutionButton({
 
   const fitToWindow = useCallback(
     (base?: FitBase) => {
+      if (otherSessionRef.current) return;
       const { clientWidth, clientHeight } = useVideoStore.getState();
       const width = Math.round(clientWidth);
       const height = Math.round(clientHeight);
@@ -127,8 +141,15 @@ export default function ResolutionButton({
             return;
           }
           lastFitRatio.current = width / height;
-          const result = resp.result as { width: number; height: number };
-          notifications.success(m.resolution_fit_success(result));
+          const result = resp.result as { width: number; height: number; delayMs?: number };
+          if (result.delayMs && result.delayMs > 0) {
+            notifications.success(
+              m.resolution_fit_held({ ...result, seconds: Math.ceil(result.delayMs / 1000) }),
+            );
+            window.setTimeout(refresh, result.delayMs + HELD_CHANGE_REFRESH_MARGIN_MS);
+          } else {
+            notifications.success(m.resolution_fit_success(result));
+          }
           refresh();
         },
       );
@@ -155,6 +176,7 @@ export default function ResolutionButton({
       lastFitRatio.current = null;
       notifications.success(m.resolution_safe_mode_on());
       refresh();
+      window.setTimeout(refresh, 10_000 + HELD_CHANGE_REFRESH_MARGIN_MS);
     });
   };
 
@@ -185,7 +207,7 @@ export default function ResolutionButton({
   // the way out (only if it changed) so the windowed resolution is kept.
   useEffect(() => {
     const settings = useSettingsStore.getState();
-    if (settings.resolutionSafeMode) return;
+    if (settings.resolutionSafeMode || otherSessionRef.current) return;
     if (isFullscreen) {
       if (settings.autoFitResolutionFullscreen && !settings.autoFitResolution) {
         edidBeforeFullscreen.current = rawEdid.current;
@@ -210,12 +232,14 @@ export default function ResolutionButton({
   }, [isFullscreen, send, refresh]);
 
   const autoFitActive =
-    !resolutionSafeMode && (isFullscreen ? autoFitResolutionFullscreen : autoFitResolution);
+    !resolutionSafeMode &&
+    !otherSession &&
+    (isFullscreen ? autoFitResolutionFullscreen : autoFitResolution);
 
   useEffect(() => {
     if (!autoFitActive || !edidKnown) return;
     const check = () => {
-      if (document.hidden || busyRef.current) return;
+      if (document.hidden || busyRef.current || otherSessionRef.current) return;
       const { clientWidth, clientHeight } = useVideoStore.getState();
       if (!clientWidth || !clientHeight) return;
       const last = lastFitRatio.current;
@@ -230,7 +254,7 @@ export default function ResolutionButton({
     };
   }, [autoFitActive, isFullscreen, edidKnown, fitToWindow]);
 
-  const locked = busy || resolutionSafeMode;
+  const locked = busy || resolutionSafeMode || otherSession;
   const currentLabel = fitted
     ? m.resolution_fit_current(fitted)
     : (currentPreset?.name ?? (edidKnown ? m.video_edid_custom() : "…"));

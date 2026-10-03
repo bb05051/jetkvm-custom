@@ -250,7 +250,8 @@ func rpcGetEDID() (string, error) {
 	return resp, nil
 }
 
-func rpcSetEDID(edid string) error {
+// applyEDID sets the EDID right away; rpcSetEDID (edid_fit.go) rate limits it.
+func applyEDID(edid string) error {
 	if isInternalDisabledEDID(edid) {
 		return fmt.Errorf("invalid EDID")
 	}

@@ -891,6 +891,7 @@
     "resolution_current": "Current: {current}",
     "resolution_fit_current": "Fit to window ({width}x{height})",
     "resolution_fit_failed": "Failed to fit the resolution: {error}",
+    "resolution_fit_held": "Resolution {width}x{height} will be applied in {seconds} s (the resolution changed less than 10 s ago)",
     "resolution_fit_no_area": "the video area is not known yet",
     "resolution_fit_now": "Fit now",
     "resolution_fit_success": "Resolution set to {width}x{height} to fit the window",
