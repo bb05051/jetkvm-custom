@@ -10,6 +10,33 @@
 /* Dark mode uses CSS selector instead of prefers-color-scheme */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Custom firmware: black dark theme instead of the navy one. The slate and gray
+   scales carry a blue tint; remap them to neutral tones only while .dark is active. */
+.dark {
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f4f4f4;
+  --color-slate-200: #e4e4e4;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a3a3a3;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #383838;
+  --color-slate-800: #232323;
+  --color-slate-900: #121212;
+  --color-slate-950: #070707;
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f4;
+  --color-gray-200: #e4e4e4;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #383838;
+  --color-gray-800: #232323;
+  --color-gray-900: #121212;
+  --color-gray-950: #070707;
+}
+
 @theme {
   --font-sans: "Circular", sans-serif;
   --font-display: "Circular", sans-serif;
