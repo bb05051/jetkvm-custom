@@ -9,6 +9,7 @@ import useTouch from "@hooks/useTouch";
 import { useDevicePixelRatio } from "@hooks/useDevicePixelRatio";
 import {
   useCapability,
+  useHidStore,
   useRTCStore,
   useSettingsStore,
   useUiStore,
@@ -612,10 +613,23 @@ export default function WebRTCVideo({
       videoElmRefValue.addEventListener("mousemove", mouseHandler, { signal });
       videoElmRefValue.addEventListener("pointerdown", mouseHandler, { signal });
       videoElmRefValue.addEventListener("pointerup", mouseHandler, { signal });
-      videoElmRefValue.addEventListener("wheel", mouseWheelHandler, {
-        signal,
-        passive: true,
-      });
+      // Touchpad pinch reaches the page as a ctrl+wheel event, which would
+      // zoom the browser. Block that over the video; forward the wheel only
+      // when Ctrl is really held (it is then down on the host as well).
+      const wheelHandler = (e: WheelEvent) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          const { modifier } = useHidStore.getState().keysDownState;
+          const hostCtrlDown = (modifier & (0x01 | 0x10)) !== 0; // left/right Ctrl
+          if (!hostCtrlDown) return;
+        }
+        mouseWheelHandler(e);
+      };
+      videoElmRefValue.addEventListener("wheel", wheelHandler, { signal, passive: false });
+      // Safari reports touchpad pinch as gesture events instead.
+      const preventGesture = (e: Event) => e.preventDefault();
+      videoElmRefValue.addEventListener("gesturestart", preventGesture, { signal });
+      videoElmRefValue.addEventListener("gesturechange", preventGesture, { signal });
 
       videoElmRefValue.addEventListener("pointerdown", touchPointerDown, { signal });
       videoElmRefValue.addEventListener("pointermove", touchPointerMove, { signal });
