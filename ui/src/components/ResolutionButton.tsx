@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuCheck, LuMonitor, LuSettings, LuSquare, LuSquareCheck } from "react-icons/lu";
+import { LuCheck, LuMonitor } from "react-icons/lu";
+import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
+import { ChevronDownIcon } from "@heroicons/react/16/solid";
 
 import { m } from "@localizations/messages.js";
 import { JsonRpcResponse, useJsonRpc } from "@hooks/useJsonRpc";
 import { useDeviceUiNavigation } from "@hooks/useAppNavigation";
-import { useSettingsStore, useVideoStore } from "@hooks/stores";
-import {
-  SplitButtonCaret,
-  SplitButtonGroup,
-  SplitButtonMenuItem,
-  SplitButtonPrimary,
-} from "@components/SplitButton";
+import { useSettingsStore, useUiStore, useVideoStore } from "@hooks/stores";
+import { SplitButtonGroup, SplitButtonPrimary } from "@components/SplitButton";
+import { Button } from "@components/Button";
+import Card, { GridCard } from "@components/Card";
+import { CheckboxWithLabel } from "@components/Checkbox";
+import { SettingsPageHeader } from "@components/SettingsPageheader";
+import { cx } from "@/cva.config";
 import notifications from "@/notifications";
 
 interface EDIDPreset {
@@ -34,12 +36,28 @@ function fittedSize(edid: string): { width: number; height: number } | null {
 const AUTO_FIT_INTERVAL_MS = 10_000;
 const AUTO_FIT_TOLERANCE = 0.03;
 
+// Matches the caret half of SplitButton (which only offers a Menu caret).
+const caretClass = cx(
+  "inline-flex h-[28px] cursor-pointer items-center rounded-r-sm px-1 select-none",
+  "border border-slate-800/30 border-l-slate-800/15 bg-white text-black shadow-xs outline-hidden",
+  "dark:border-slate-300/20 dark:border-l-slate-300/10 dark:bg-slate-800 dark:text-white",
+  "transition-all duration-200 hover:bg-blue-50/80 active:bg-blue-100/60",
+  "dark:hover:bg-slate-700 dark:active:bg-slate-600",
+);
+
 // Primary click: set an EDID matching the current video area once.
-// Caret: auto fit toggle, then the EDID presets from the video settings.
-export default function ResolutionButton() {
+// Caret: a panel (like Paste text) with the auto fit toggle and the EDID
+// presets from the video settings. Auto fit runs here, so it keeps working
+// while the panel is closed.
+export default function ResolutionButton({
+  onPanelStateChange,
+}: {
+  onPanelStateChange: (open: boolean) => void;
+}) {
   const { send } = useJsonRpc();
   const { navigateTo } = useDeviceUiNavigation();
   const { autoFitResolution, setAutoFitResolution } = useSettingsStore();
+  const { setDisableVideoFocusTrap } = useUiStore();
 
   const [presets, setPresets] = useState<EDIDPreset[]>([]);
   // Lowercased EDID currently set on the device
@@ -132,51 +150,100 @@ export default function ResolutionButton() {
     return () => window.clearInterval(id);
   }, [autoFitResolution, edidKnown, fitToWindow]);
 
-  const menuItems: SplitButtonMenuItem[] = [
-    {
-      label: m.resolution_auto_fit(),
-      icon: autoFitResolution ? LuSquareCheck : LuSquare,
-      active: autoFitResolution,
-      onClick: () => setAutoFitResolution(!autoFitResolution),
-    },
-    ...presets.map(preset => {
-      const active = preset.edid.toLowerCase() === currentEdid;
-      return {
-        label: preset.name,
-        icon: active ? LuCheck : undefined,
-        active,
-        disabled: busy,
-        onClick: () => selectPreset(preset),
-      };
-    }),
-    ...(currentEdid && !isPreset
-      ? [
-          {
-            label: fitted ? m.resolution_fit_current(fitted) : m.video_edid_custom(),
-            icon: LuCheck,
-            active: true,
-            disabled: true,
-            onClick: () => undefined,
-          },
-        ]
-      : []),
-    {
-      label: m.resolution_popover_more_settings(),
-      icon: LuSettings,
-      onClick: () => navigateTo("/settings/video"),
-    },
-  ];
-
   return (
-    <SplitButtonGroup>
-      <SplitButtonPrimary
-        icon={LuMonitor}
-        label={m.action_bar_resolution()}
-        title={m.resolution_fit_tooltip()}
-        disabled={busy}
-        onClick={fitToWindow}
-      />
-      <SplitButtonCaret menuItems={menuItems} />
-    </SplitButtonGroup>
+    <Popover>
+      <SplitButtonGroup>
+        <SplitButtonPrimary
+          icon={LuMonitor}
+          label={m.action_bar_resolution()}
+          title={m.resolution_fit_tooltip()}
+          disabled={busy}
+          onClick={fitToWindow}
+        />
+        <PopoverButton className={caretClass} onClick={() => setDisableVideoFocusTrap(true)}>
+          <ChevronDownIcon className="size-3.5 text-black dark:text-white" />
+        </PopoverButton>
+      </SplitButtonGroup>
+      <PopoverPanel
+        anchor="bottom start"
+        transition
+        className={cx(
+          "z-10 flex w-[420px] origin-top flex-col overflow-visible!",
+          "flex origin-top flex-col transition duration-300 ease-out data-closed:translate-y-8 data-closed:opacity-0",
+        )}
+      >
+        {({ open }) => {
+          onPanelStateChange(open);
+          return (
+            <div className="mx-auto w-full max-w-xl">
+              <GridCard>
+                <div className="space-y-4 p-4 py-3">
+                  <SettingsPageHeader
+                    title={m.action_bar_resolution()}
+                    description={m.resolution_panel_description()}
+                  />
+                  <div className="flex items-center justify-between gap-x-2">
+                    <CheckboxWithLabel
+                      label={m.resolution_auto_fit()}
+                      description={m.resolution_auto_fit_description()}
+                      checked={autoFitResolution}
+                      onChange={e => setAutoFitResolution(e.target.checked)}
+                    />
+                    <Button
+                      size="SM"
+                      theme="light"
+                      text={m.resolution_fit_now()}
+                      disabled={busy}
+                      onClick={fitToWindow}
+                    />
+                  </div>
+                  <Card className="animate-fadeIn opacity-0">
+                    <div className="w-full divide-y divide-slate-700/30 dark:divide-slate-600/30">
+                      {presets.map(preset => {
+                        const selected = preset.edid.toLowerCase() === currentEdid;
+                        return (
+                          <button
+                            key={preset.edid}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => selectPreset(preset)}
+                            className={cx(
+                              "flex w-full items-center justify-between gap-x-2 p-3 text-left text-sm",
+                              "text-slate-900 hover:bg-slate-100 disabled:opacity-60 dark:text-slate-100 dark:hover:bg-slate-700/50",
+                              selected && "font-semibold",
+                            )}
+                          >
+                            <span>{preset.name}</span>
+                            {selected && (
+                              <LuCheck className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                      {currentEdid && !isPreset && (
+                        <div className="flex w-full items-center justify-between gap-x-2 p-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          <span>
+                            {fitted ? m.resolution_fit_current(fitted) : m.video_edid_custom()}
+                          </span>
+                          <LuCheck className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-500" />
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                  <div className="flex justify-end">
+                    <Button
+                      size="SM"
+                      theme="light"
+                      text={m.resolution_popover_more_settings()}
+                      onClick={() => navigateTo("/settings/video")}
+                    />
+                  </div>
+                </div>
+              </GridCard>
+            </div>
+          );
+        }}
+      </PopoverPanel>
+    </Popover>
   );
 }

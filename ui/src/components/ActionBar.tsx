@@ -236,7 +236,7 @@ export default function Actionbar({
             </Popover>
           </div>
           <div>
-            <ResolutionButton />
+            <ResolutionButton onPanelStateChange={checkIfStateChanged} />
           </div>
           <div className="hidden lg:block">
             <Button
