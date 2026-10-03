@@ -15,7 +15,7 @@ import type { TouchContact } from "./hidRpc";
 // Touch input always uses absolute positioning, regardless of the mouse mode.
 //
 // When the USB touchscreen device is enabled, gestures are not interpreted
-// here: up to two contacts are forwarded as-is and the target OS handles
+// here: up to five contacts are forwarded as-is and the target OS handles
 // taps, scrolling and pinch zoom natively.
 
 const LONG_PRESS_MS = 500;
@@ -29,7 +29,8 @@ const BUTTON_NONE = 0;
 const BUTTON_LEFT = 1;
 const BUTTON_RIGHT = 2;
 
-const MAX_TOUCH_CONTACTS = 2;
+// Keep in sync with TouchscreenMaxContacts in internal/usbgadget/hid_touchscreen.go
+const MAX_TOUCH_CONTACTS = 5;
 // Win8-class multitouch hosts (Linux hid-multitouch with sticky-finger
 // handling) release contacts that go ~100ms without a report, so resend the
 // current contacts while a finger is held still.

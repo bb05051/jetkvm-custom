@@ -81,3 +81,10 @@ func TestTouchscreenDescHasWin8CertificationFeature(t *testing.T) {
 		t.Fatal("missing Device Certification Status feature (0xff0000c5, 8x256)")
 	}
 }
+
+// The whole input report must fit one 64-byte interrupt packet.
+func TestTouchscreenReportFitsEndpoint(t *testing.T) {
+	if touchscreenReportLength > touchEpMaxPacket {
+		t.Fatalf("report is %d bytes, endpoint max packet is %d", touchscreenReportLength, touchEpMaxPacket)
+	}
+}

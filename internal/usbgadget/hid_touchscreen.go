@@ -14,8 +14,9 @@ var touchscreenConfig = gadgetConfigItem{
 }
 
 // TouchscreenMaxContacts is the number of simultaneous contacts the
-// touchscreen descriptor reports (enough for two-finger pinch and scroll).
-const TouchscreenMaxContacts = 2
+// touchscreen descriptor reports. The input report is 1 + 6*n + 1 bytes and
+// must fit the 64-byte interrupt endpoint, so n can go up to 10.
+const TouchscreenMaxContacts = 5
 
 const (
 	touchscreenReportID        = 3
@@ -73,7 +74,7 @@ var touchscreenReportDesc = func() []byte {
 		0x45, 0x00, //   Physical Maximum (0) = Reset Physical Maximum
 		0x09, 0x54, //   Usage (Contact Count)
 		0x15, 0x00, //   Logical Minimum (0)
-		0x25, TouchscreenMaxContacts, //   Logical Maximum (2)
+		0x25, TouchscreenMaxContacts, //   Logical Maximum (TouchscreenMaxContacts)
 		0x75, 0x08, //   Report Size (8)
 		0x95, 0x01, //   Report Count (1)
 		0x81, 0x02, //   Input (Data, Var, Abs)
@@ -82,7 +83,7 @@ var touchscreenReportDesc = func() []byte {
 		// zeros, so hosts fall back to the Logical Maximum (Linux does this).
 		0x85, touchscreenFeatureReportID, //   Report ID (4)
 		0x09, 0x55, //   Usage (Contact Count Maximum)
-		0x25, TouchscreenMaxContacts, //   Logical Maximum (2)
+		0x25, TouchscreenMaxContacts, //   Logical Maximum (TouchscreenMaxContacts)
 		0xB1, 0x02, //   Feature (Data, Var, Abs)
 
 		// Report ID 5: Device Certification Status (Windows 8 THQA blob).

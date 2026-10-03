@@ -41,7 +41,7 @@ func TestTouchscreenReport(t *testing.T) {
 func TestTouchscreenReportInvalid(t *testing.T) {
 	cases := map[string][]byte{
 		"empty":          {},
-		"too many":       {3},
+		"too many":       {usbgadget.TouchscreenMaxContacts + 1},
 		"short":          {1, 1, 0, 0, 0, 0},
 		"trailing bytes": {0, 0},
 	}
