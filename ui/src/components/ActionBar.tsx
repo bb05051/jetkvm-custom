@@ -1,10 +1,10 @@
 import { Fragment, useCallback, useEffect, useRef } from "react";
 import { MdOutlineContentPasteGo } from "react-icons/md";
 import {
-  LuCable,
   LuExternalLink,
   LuHardDrive,
   LuMaximize,
+  LuMonitor,
   LuScanText,
   LuSettings,
   LuSignal,
@@ -13,7 +13,6 @@ import {
 } from "react-icons/lu";
 import { FaKeyboard } from "react-icons/fa6";
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react";
-import { CommandLineIcon } from "@heroicons/react/20/solid";
 
 import { SplitButtonGroup, SplitButtonPrimary, SplitButtonCaret } from "@components/SplitButton";
 
@@ -22,7 +21,6 @@ import {
   useHidStore,
   useMountMediaStore,
   useCapability,
-  useSettingsStore,
   useUiStore,
   useVideoStore,
 } from "@hooks/stores";
@@ -32,7 +30,7 @@ import Container from "@components/Container";
 import PasteModal from "@components/popovers/PasteModal";
 import WakeOnLanModal from "@components/popovers/WakeOnLan/Index";
 import MountPopopover from "@components/popovers/MountPopover";
-import ExtensionPopover from "@components/popovers/ExtensionPopover";
+import ResolutionPopover from "@components/popovers/ResolutionPopover";
 import { JsonRpcResponse, useJsonRpc } from "@hooks/useJsonRpc";
 import { m } from "@localizations/messages.js";
 
@@ -57,10 +55,6 @@ export default function Actionbar({
   } = useUiStore();
   const { remoteVirtualMediaState } = useMountMediaStore();
   const { width: videoWidth, height: videoHeight } = useVideoStore();
-  const { developerMode } = useSettingsStore();
-  const shell = useCapability("shell");
-  const kvmTerminal = developerMode && shell;
-  const extensions = useCapability("extensions");
   const usbSerial = useCapability("usb_serial");
   const usbSerialConsole = usbSerialConsoleEnabled && usbSerial;
   const { send } = useJsonRpc();
@@ -100,33 +94,7 @@ export default function Actionbar({
         className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-1.5"
       >
         <div className="relative flex flex-wrap items-center gap-x-2 gap-y-2">
-          {kvmTerminal && usbSerialConsole ? (
-            <SplitButtonGroup>
-              <SplitButtonPrimary
-                icon={({ className }) => <CommandLineIcon className={className} />}
-                label={m.kvm_terminal()}
-                onClick={() => setTerminalType(terminalType === "kvm" ? "none" : "kvm")}
-              />
-              <SplitButtonCaret
-                menuItems={[
-                  {
-                    label: "USB Serial Console",
-                    icon: LuTerminal,
-                    onClick: () => setTerminalType(terminalType === "cdcacm" ? "none" : "cdcacm"),
-                    active: terminalType === "cdcacm",
-                  },
-                ]}
-              />
-            </SplitButtonGroup>
-          ) : kvmTerminal ? (
-            <Button
-              size="XS"
-              theme="light"
-              text={m.kvm_terminal()}
-              LeadingIcon={({ className }) => <CommandLineIcon className={className} />}
-              onClick={() => setTerminalType(terminalType === "kvm" ? "none" : "kvm")}
-            />
-          ) : usbSerialConsole ? (
+          {usbSerialConsole ? (
             <Button
               size="XS"
               theme="light"
@@ -268,6 +236,38 @@ export default function Actionbar({
               </PopoverPanel>
             </Popover>
           </div>
+          <div>
+            <Popover>
+              <PopoverButton as={Fragment}>
+                <Button
+                  size="XS"
+                  theme="light"
+                  text={m.action_bar_resolution()}
+                  LeadingIcon={LuMonitor}
+                  onClick={() => {
+                    setDisableVideoFocusTrap(true);
+                  }}
+                />
+              </PopoverButton>
+              <PopoverPanel
+                anchor="bottom start"
+                transition
+                className={cx(
+                  "z-10 flex w-[420px] origin-top flex-col overflow-visible!",
+                  "flex origin-top flex-col transition duration-300 ease-out data-closed:translate-y-8 data-closed:opacity-0",
+                )}
+              >
+                {({ open }) => {
+                  checkIfStateChanged(open);
+                  return (
+                    <div className="mx-auto w-full max-w-xl">
+                      <ResolutionPopover />
+                    </div>
+                  );
+                }}
+              </PopoverPanel>
+            </Popover>
+          </div>
           <div className="hidden lg:block">
             <Button
               size="XS"
@@ -280,35 +280,6 @@ export default function Actionbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-          {extensions && (
-            <Popover>
-              <PopoverButton as={Fragment}>
-                <Button
-                  size="XS"
-                  theme="light"
-                  text={m.action_bar_extension()}
-                  LeadingIcon={LuCable}
-                  onClick={() => {
-                    setDisableVideoFocusTrap(true);
-                  }}
-                />
-              </PopoverButton>
-              <PopoverPanel
-                anchor="bottom start"
-                transition
-                className={cx(
-                  "z-10 flex w-[420px] flex-col overflow-visible!",
-                  "flex origin-top flex-col transition duration-300 ease-out data-closed:translate-y-8 data-closed:opacity-0",
-                )}
-              >
-                {({ open }) => {
-                  checkIfStateChanged(open);
-                  return <ExtensionPopover />;
-                }}
-              </PopoverPanel>
-            </Popover>
-          )}
-
           <div className="block lg:hidden">
             <Button
               size="XS"
@@ -346,7 +317,7 @@ export default function Actionbar({
             </div>
           )}
 
-          <div className="hidden items-center gap-x-2 lg:flex">
+          <div className="flex items-center gap-x-2">
             <div className="h-4 w-px bg-slate-300 dark:bg-slate-600" />
             {isEmbedMode ? (
               <Button
