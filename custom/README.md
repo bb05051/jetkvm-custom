@@ -151,6 +151,10 @@ EDID 변경은 장치에서 `edidfit.ChangeLimiter`로 한 번에 하나씩, 직
 `ui/src/index.css` — 다크 모드일 때만 slate/gray 색상표를 무채색으로 바꿔 끼움(클래스는 그대로) /
 `ui/index.html` — 로딩 화면(skeleton)의 다크 색상
 
+### 6. 장치 화면에 접속자 IP 표시
+장치 자체 화면 오른쪽 위의 `N active`(접속 수) 대신 콘솔을 쓰는 브라우저의 IP를 표시. 없으면 `No session`, 클라우드 접속에서 IP를 알 수 없으면 `Cloud`.
+`session_ip.go`(표시 문구, 클라우드 접속은 선택된 ICE 후보에서 IP를 얻음) / `display.go`(`cloud_status_label`) / `webrtc.go`(`clientIP` 필드) / `cloud.go`(`handleSessionRequest`에서 로컬 접속의 IP 전달)
+
 ## 충돌이 나기 쉬운 곳
 
 | 위치 | 이유 / 해결 요령 |
