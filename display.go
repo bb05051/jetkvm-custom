@@ -3,7 +3,6 @@ package kvm
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -76,7 +75,7 @@ func updateDisplay() {
 		nativeInstance.UpdateLabelIfChanged("hdmi_status_label", "Disconnected")
 		_, _ = nativeInstance.UIObjClearState("hdmi_status_label", "LV_STATE_CHECKED")
 	}
-	nativeInstance.UpdateLabelIfChanged("cloud_status_label", fmt.Sprintf("%d active", actionSessions))
+	nativeInstance.UpdateLabelIfChanged("cloud_status_label", sessionDisplayLabel())
 
 	if networkManager != nil && networkManager.IsUp() {
 		nativeInstance.UISetVar("main_screen", "home_screen")

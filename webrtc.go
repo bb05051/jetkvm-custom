@@ -32,6 +32,7 @@ type Session struct {
 	RPCChannel               *webrtc.DataChannel
 	HidChannel               *webrtc.DataChannel
 	shouldUmountVirtualMedia bool
+	clientIP                 string // shown on the device display
 
 	rpcQueue chan webrtc.DataChannelMessage
 
@@ -128,6 +129,7 @@ type hidQueueMessage struct {
 type SessionConfig struct {
 	ICEServers []string
 	LocalIP    string
+	ClientIP   string // browser address, if known from signaling
 	IsCloud    bool
 	ws         *websocket.Conn
 	Logger     *zerolog.Logger
@@ -522,6 +524,7 @@ func newSession(config SessionConfig) (*Session, error) {
 		peerConnection: peerConnection,
 		done:           make(chan struct{}),
 		rpcQueue:       make(chan webrtc.DataChannelMessage, 256),
+		clientIP:       config.ClientIP,
 	}
 	session.initQueues()
 	session.initKeysDownStateQueue()
@@ -611,6 +614,7 @@ func newSession(config SessionConfig) (*Session, error) {
 		if connectionState == webrtc.ICEConnectionStateConnected {
 			if !isConnected {
 				isConnected = true
+				session.setClientIPFromICE()
 				onActiveSessionsChanged()
 				if incrActiveSessions() == 1 {
 					onFirstSessionConnected(session)

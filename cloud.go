@@ -456,10 +456,17 @@ func handleSessionRequest(
 		}
 	}
 
+	// source is the browser for local connections, the cloud host otherwise
+	clientIP := ""
+	if !isCloudConnection {
+		clientIP = source
+	}
+
 	session, err := newSession(SessionConfig{
 		ws:         c,
 		IsCloud:    isCloudConnection,
 		LocalIP:    req.IP,
+		ClientIP:   clientIP,
 		ICEServers: req.ICEServers,
 		Logger:     scopedLogger,
 		MDNSMode:   config.NetworkConfig.MDNSMode.String,
@@ -492,6 +499,7 @@ func handleSessionRequest(
 	cancelKeyboardMacro()
 
 	currentSession = session
+	requestDisplayUpdate(false, "current_session_changed")
 	_ = wsjson.Write(context.Background(), c, gin.H{"type": "answer", "data": sd})
 	return nil
 }
