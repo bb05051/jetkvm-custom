@@ -258,13 +258,15 @@ void create_screen_home_screen() {
                             lv_obj_set_pos(obj, 0, 0);
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_image_set_src(obj, &img_jetkvm);
-                            // smaller logo (116x32 -> 90x25) so the device MAC fits at the top right
-                            lv_obj_set_size(obj, 90, 32);
+                            // only the icon (the left 32x32 of the logo, without the "JetKVM"
+                            // text) so the device MAC fits at the top right
+                            lv_obj_set_size(obj, 32, 32);
                             lv_image_set_inner_align(obj, LV_IMAGE_ALIGN_LEFT_MID);
-                            lv_image_set_pivot(obj, 0, 16);
-                            lv_image_set_scale(obj, 198);
                             lv_obj_set_style_transform_width(obj, 174, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_transform_height(obj, 49, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            // these widen the drawn area past the object, which would show the text again
+                            lv_obj_set_style_transform_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_transform_height(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
                         }
                         {
                             lv_obj_t *obj = lv_obj_create(parent_obj);
