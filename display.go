@@ -51,7 +51,8 @@ func updateDisplayUsbState() {
 
 func updateDisplay() {
 	if networkManager != nil {
-		nativeInstance.UpdateLabelIfChanged("home_info_ipv4_addr", networkManager.IPv4String())
+		// the device address goes to the header, the console user's to the info area
+		nativeInstance.UpdateLabelIfChanged("cloud_status_label", networkManager.IPv4String())
 		nativeInstance.UpdateLabelAndChangeVisibility("home_info_ipv6_addr", networkManager.IPv6String())
 		nativeInstance.UpdateLabelIfChanged("home_info_mac_addr", networkManager.MACString())
 	}
@@ -75,7 +76,7 @@ func updateDisplay() {
 		nativeInstance.UpdateLabelIfChanged("hdmi_status_label", "Disconnected")
 		_, _ = nativeInstance.UIObjClearState("hdmi_status_label", "LV_STATE_CHECKED")
 	}
-	nativeInstance.UpdateLabelIfChanged("cloud_status_label", sessionDisplayLabel())
+	nativeInstance.UpdateLabelIfChanged("home_info_ipv4_addr", sessionDisplayLabel())
 
 	if networkManager != nil && networkManager.IsUp() {
 		nativeInstance.UISetVar("main_screen", "home_screen")

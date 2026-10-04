@@ -5,8 +5,9 @@ import (
 	"strings"
 )
 
-// sessionDisplayLabel is shown at the top right of the device display: the
-// address of the browser using the console instead of the session count.
+// sessionDisplayLabel is shown on the device display where the device IPv4
+// address was (the device address moves to the session count's place): the
+// address of the browser using the console.
 func sessionDisplayLabel() string {
 	session := currentSession
 	if session == nil || getActiveSessions() == 0 {
