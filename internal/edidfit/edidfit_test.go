@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// The derived presets in edid_presets.go are generated with Mode; their
-// preferred-mode descriptors must come out identical.
+// Regression vectors: descriptors Mode produced for modes verified on the
+// device (formerly the custom presets); they must come out identical.
 func TestModeMatchesPresets(t *testing.T) {
 	cases := []struct {
 		w, h int

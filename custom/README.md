@@ -25,7 +25,9 @@ origin/dev, release/*   ← 원본 (git remote: origin = github.com/jetkvm/kvm)
    ├─ feat(ui): separate auto fit for fullscreen
    ├─ fix: keep the TC358743 fed on wide, low pixel clock modes
    ├─ feat: fit base sizes and resolution safe mode
-   └─ feat: space EDID changes 10 s apart and skip fits while taken over
+   ├─ feat: space EDID changes 10 s apart and skip fits while taken over
+   ├─ docs(custom): document the GitHub fork
+   └─ revert: restore edid_presets.go to upstream
         │
    custom (브랜치)
 ```
@@ -129,10 +131,11 @@ Auto fit을 켜면
 저블랭킹으로 대체(같은 부족량 보정 적용). 세로는 8의 배수.
 EDID 변경은 장치에서 `edidfit.ChangeLimiter`로 한 번에 하나씩, 직전 변경 후 10초 안의 요청은 보류했다가
 마지막 것만 적용(원본 `rpcSetEDID` 본문은 `applyEDID`로 이름만 바꿈). 다른 기기 접속 팝업(/other-session)이
-떠 있는 탭은 해상도 요청을 보내지 않음. SyncMaster 1792x896 프리셋을 바탕으로 제품 코드 `0x0010`, 일련번호 = 가로<<16 | 세로로 만듦.
+떠 있는 탭은 해상도 요청을 보내지 않음. `edid_fit.go`의 SyncMaster 1792x896 템플릿을 바탕으로 제품 코드 `0x0010`, 일련번호 = 가로<<16 | 세로로 만듦.
 
-### 3. EDID 프리셋
-`edid_presets.go` — 기본값 + Samsung SyncMaster 1792x896 / (wide) 1920x800 / (fold) 1440x1088 / (16:10) 1600x1000
+### 3. EDID 프리셋 (원복됨)
+`edid_presets.go`는 원본과 같음(커밋 `revert: restore edid_presets.go` 참고). 창에 맞추기 템플릿
+(Samsung SyncMaster 1792x896 EDID)은 `edid_fit.go`의 `fitTemplateEDID`에 들어 있음.
 
 ### 4. 자동 업데이트 비활성화
 | 파일 | 내용 |
@@ -157,7 +160,6 @@ EDID 변경은 장치에서 `edidfit.ChangeLimiter`로 한 번에 하나씩, 직
 | `ui/localization/messages/en.json` | 키를 알파벳 순서로 다시 넣으면 됨 |
 | `internal/hidrpc/hidrpc.go` | **원본이 0x0A 메시지 번호를 새로 쓰기 시작하면 번호를 바꿔야 함** (Go와 `ui/src/hooks/hidRpc.ts` 둘 다) |
 | `internal/usbgadget/config.go` | 원본이 USB 장치를 추가하면 `order: 1004`, `ffs.touchscreen` 이름이 겹치지 않는지 확인 |
-| `edid_presets.go` | 원본 프리셋 목록이 바뀌어도 우리 목록(4개 + 기본값)을 유지 |
 | `jsonrpc.go`의 `applyEDID` | 원본 `rpcSetEDID` 본문을 이름만 바꾼 것. 원본이 이 함수를 고치면 `applyEDID`에 반영하고 `rpcSetEDID`는 `edid_fit.go` 것을 유지 |
 | `main.go` 자동 업데이트 루프, `ui/.../general.update.tsx` | 원본이 업데이트 흐름을 바꾸면 `customFirmware` 조건과 확인 창(`UpdateAvailableState`)을 다시 넣기. **새 업데이트 경로(예: 클라우드 명령)가 생기면 그것도 막아야 함** |
 
