@@ -51,10 +51,10 @@ func updateDisplayUsbState() {
 
 func updateDisplay() {
 	if networkManager != nil {
-		// the device address goes to the header, the console user's to the info area
-		nativeInstance.UpdateLabelIfChanged("cloud_status_label", networkManager.IPv4String())
+		// the device MAC and IPv4 go to the header, the console user's address to the info area
+		nativeInstance.UpdateLabelIfChanged("cloud_status_label", networkManager.MACString()+"\n"+networkManager.IPv4String())
 		nativeInstance.UpdateLabelAndChangeVisibility("home_info_ipv6_addr", networkManager.IPv6String())
-		nativeInstance.UpdateLabelIfChanged("home_info_mac_addr", networkManager.MACString())
+		_, _ = nativeInstance.UIObjHide("home_info_mac_addr")
 	}
 
 	_, _ = nativeInstance.UIObjHide("menu_btn_network")

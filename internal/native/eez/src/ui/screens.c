@@ -219,6 +219,8 @@ void create_screen_home_screen() {
         lv_obj_t *parent_obj = obj;
         {
             lv_obj_t *obj = lv_obj_create(parent_obj);
+            // the two-line header makes the content a few pixels taller than the screen
+            lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
             lv_obj_set_pos(obj, 0, 0);
             lv_obj_set_size(obj, LV_PCT(100), LV_PCT(100));
             lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -256,6 +258,11 @@ void create_screen_home_screen() {
                             lv_obj_set_pos(obj, 0, 0);
                             lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                             lv_image_set_src(obj, &img_jetkvm);
+                            // smaller logo (116x32 -> 90x25) so the device MAC fits at the top right
+                            lv_obj_set_size(obj, 90, 32);
+                            lv_image_set_inner_align(obj, LV_IMAGE_ALIGN_LEFT_MID);
+                            lv_image_set_pivot(obj, 0, 16);
+                            lv_image_set_scale(obj, 198);
                             lv_obj_set_style_transform_width(obj, 174, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_obj_set_style_transform_height(obj, 49, LV_PART_MAIN | LV_STATE_DEFAULT);
                         }
@@ -289,6 +296,8 @@ void create_screen_home_screen() {
                                     lv_obj_set_pos(obj, LV_PCT(0), LV_PCT(0));
                                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                                     add_style_label_font16(obj);
+                                    // two lines (device MAC and IP), right aligned
+                                    lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN | LV_STATE_DEFAULT);
                                     lv_label_set_text(obj, "-1 active");
                                 }
                             }

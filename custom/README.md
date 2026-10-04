@@ -152,8 +152,8 @@ EDID 변경은 장치에서 `edidfit.ChangeLimiter`로 한 번에 하나씩, 직
 `ui/index.html` — 로딩 화면(skeleton)의 다크 색상
 
 ### 6. 장치 화면에 접속자 IP 표시
-장치 자체 화면에서 원래 장치 IPv4가 있던 큰 글씨 자리에 콘솔을 쓰는 브라우저의 IP를 표시(없으면 `No session`, 클라우드 접속에서 IP를 알 수 없으면 `Cloud`), 오른쪽 위 `N active`(접속 수) 자리에는 장치 IPv4를 표시.
-`session_ip.go`(표시 문구, 클라우드 접속은 선택된 ICE 후보에서 IP를 얻음) / `display.go`(`cloud_status_label` ↔ `home_info_ipv4_addr`) / `webrtc.go`(`clientIP` 필드) / `cloud.go`(`handleSessionRequest`에서 로컬 접속의 IP 전달)
+장치 자체 화면에서 원래 장치 IPv4가 있던 큰 글씨 자리에 콘솔을 쓰는 브라우저의 IP를 표시(없으면 `No session`, 클라우드 접속에서 IP를 알 수 없으면 `Cloud`), 오른쪽 위 `N active`(접속 수) 자리에는 장치 MAC과 IPv4를 두 줄로 오른쪽 정렬해 표시(가운데의 MAC 줄은 숨김). MAC이 들어가도록 로고를 116x32 → 약 90x25로 줄이고, 두 줄 머리글 때문에 생기는 스크롤바를 끔.
+`session_ip.go`(표시 문구, 클라우드 접속은 선택된 ICE 후보에서 IP를 얻음) / `display.go`(`cloud_status_label` ↔ `home_info_ipv4_addr`) / `webrtc.go`(`clientIP` 필드) / `cloud.go`(`handleSessionRequest`에서 로컬 접속의 IP 전달) / `internal/native/eez/src/ui/screens.c`(머리글 라벨 오른쪽 정렬, 로고 크기, 스크롤바)
 
 ## 충돌이 나기 쉬운 곳
 
@@ -164,6 +164,7 @@ EDID 변경은 장치에서 `edidfit.ChangeLimiter`로 한 번에 하나씩, 직
 | `ui/localization/messages/en.json` | 키를 알파벳 순서로 다시 넣으면 됨 |
 | `internal/hidrpc/hidrpc.go` | **원본이 0x0A 메시지 번호를 새로 쓰기 시작하면 번호를 바꿔야 함** (Go와 `ui/src/hooks/hidRpc.ts` 둘 다) |
 | `internal/usbgadget/config.go` | 원본이 USB 장치를 추가하면 `order: 1004`, `ffs.touchscreen` 이름이 겹치지 않는지 확인 |
+| `internal/native/eez/src/ui/screens.c` | EEZ Studio가 만드는 파일. 원본이 화면을 다시 만들면 `// smaller logo`, `// two lines`, `// the two-line header` 주석이 붙은 줄을 다시 넣기 |
 | `jsonrpc.go`의 `applyEDID` | 원본 `rpcSetEDID` 본문을 이름만 바꾼 것. 원본이 이 함수를 고치면 `applyEDID`에 반영하고 `rpcSetEDID`는 `edid_fit.go` 것을 유지 |
 | `main.go` 자동 업데이트 루프, `ui/.../general.update.tsx` | 원본이 업데이트 흐름을 바꾸면 `customFirmware` 조건과 확인 창(`UpdateAvailableState`)을 다시 넣기. **새 업데이트 경로(예: 클라우드 명령)가 생기면 그것도 막아야 함** |
 
