@@ -77,6 +77,7 @@ func updateDisplay() {
 		_, _ = nativeInstance.UIObjClearState("hdmi_status_label", "LV_STATE_CHECKED")
 	}
 	nativeInstance.UpdateLabelIfChanged("home_info_ipv4_addr", sessionDisplayLabel())
+	updateSessionDisplayIcon()
 
 	if networkManager != nil && networkManager.IsUp() {
 		nativeInstance.UISetVar("main_screen", "home_screen")

@@ -322,8 +322,32 @@ void create_screen_home_screen() {
                     lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICKABLE);
                     lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
                     add_style_flex_column_start(obj);
+                    // session state centered like the No Network screen: icon, then address
+                    lv_obj_set_style_flex_main_place(obj, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_flex_cross_place(obj, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_obj_set_style_flex_track_place(obj, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                     {
                         lv_obj_t *parent_obj = obj;
+                        {
+                            lv_obj_t *obj = lv_image_create(parent_obj);
+                            objects.home_session_icon_idle = obj;
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_image_set_src(obj, &img_session_idle);
+                        }
+                        {
+                            lv_obj_t *obj = lv_image_create(parent_obj);
+                            objects.home_session_icon_local = obj;
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_image_set_src(obj, &img_session_local);
+                            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                        }
+                        {
+                            lv_obj_t *obj = lv_image_create(parent_obj);
+                            objects.home_session_icon_cloud = obj;
+                            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                            lv_image_set_src(obj, &img_session_cloud);
+                            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+                        }
                         {
                             // HomeInfoIPv4Addr
                             lv_obj_t *obj = lv_label_create(parent_obj);
@@ -342,7 +366,7 @@ void create_screen_home_screen() {
                             lv_label_set_long_mode(obj, LV_LABEL_LONG_DOT);
                             lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
                             add_style_label_font16(obj);
-                            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+                            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                             lv_label_set_text(obj, "fe80::ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
                         }
                         {

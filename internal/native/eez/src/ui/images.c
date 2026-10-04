@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[14] = {
+const ext_img_desc_t images[17] = {
     { "logo", &img_logo },
     { "boot-logo-2", &img_boot_logo_2 },
     { "arrow-icon", &img_arrow_icon },
@@ -15,4 +15,7 @@ const ext_img_desc_t images[14] = {
     { "jetkvm", &img_jetkvm },
     { "usb", &img_usb },
     { "x-icon", &img_x_icon },
+    { "session-idle", &img_session_idle },
+    { "session-local", &img_session_local },
+    { "session-cloud", &img_session_cloud },
 };

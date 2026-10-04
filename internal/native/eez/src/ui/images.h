@@ -21,6 +21,9 @@ extern const lv_img_dsc_t img_hdmi;
 extern const lv_img_dsc_t img_jetkvm;
 extern const lv_img_dsc_t img_usb;
 extern const lv_img_dsc_t img_x_icon;
+extern const lv_img_dsc_t img_session_idle;
+extern const lv_img_dsc_t img_session_local;
+extern const lv_img_dsc_t img_session_cloud;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -30,7 +33,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[14];
+extern const ext_img_desc_t images[17];
 
 
 #ifdef __cplusplus
