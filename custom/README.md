@@ -32,6 +32,24 @@ origin/dev, release/*   ← 원본 (git remote: origin = github.com/jetkvm/kvm)
 
 `git log --oneline custom/base..custom` 으로 수정 커밋 목록을 볼 수 있습니다.
 
+## GitHub 포크
+
+- 포크: https://github.com/bb05051/jetkvm-custom (git remote 이름 `fork`, 원본은 `origin`)
+- 올라가 있는 것: `custom` 브랜치(수정 커밋들)와 `custom/base` 태그
+- 평소 변경 후: `git push fork custom`
+- `custom/update.sh`로 새 펌웨어 위로 옮긴 뒤에는 기록이 다시 쓰이므로:
+  ```bash
+  git push --force-with-lease fork custom
+  git push --force fork refs/tags/custom/base
+  ```
+- 다른 PC에서 시작할 때:
+  ```bash
+  git clone -b custom git@github.com:bb05051/jetkvm-custom.git kvm && cd kvm
+  git remote rename origin fork
+  git remote add origin https://github.com/jetkvm/kvm.git
+  git fetch origin --tags && git fetch fork --tags
+  ```
+
 ## 새 펌웨어가 나왔을 때
 
 ```bash
